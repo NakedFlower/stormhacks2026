@@ -121,32 +121,25 @@ test('wellness: coins for the first 3 per day, no repeats', () => {
   assert.throws(() => applyWellness(m, 'water', now));
 });
 
-test('wellness: every to-do adds its EXP, never past the daily cap', () => {
+test('wellness: every to-do always banks its full EXP', () => {
   for (const t of WELLNESS_TASKS) {
     assert.ok(t.exp > 0, `${t.id} must add EXP`);
     assert.ok(t.coins > 0, `${t.id} must have a coin value`);
   }
-  // Four 5-EXP to-dos: 20 EXP, still room under the cap.
-  let m = {};
-  for (const id of ['water', 'stretch', 'outside', 'stairs']) m = applyWellness(m, id, now).member;
-  assert.equal(m.todayExp, 20);
-  // A workout after the to-dos shares the same 60 cap.
-  const w = applyWorkout(m, { type: 'run', minutes: 30, intensity: 'vigorous' }, now);
-  assert.equal(w.exp, DAILY_EXP_CAP - 20);
-  // Ticking everything never goes past the cap, however many to-dos there are.
+  // Every task gives its full EXP regardless of how many have been done.
   let all = {};
   let exp = 0;
   for (const t of WELLNESS_TASKS) {
     const r = applyWellness(all, t.id, now);
+    assert.equal(r.exp, t.exp, `${t.id} must give its full exp`);
     exp += r.exp;
     all = r.member;
   }
-  assert.equal(exp, DAILY_EXP_CAP);
-  assert.equal(all.todayExp, DAILY_EXP_CAP);
-  // Near the cap: only the room left counts, and the flag says so.
-  const near = applyWellness({ todayDate: dayKey(now), todayExp: DAILY_EXP_CAP - 2 }, 'steps', now);
-  assert.equal(near.exp, 2);
-  assert.equal(near.capped, true);
+  const totalWellnessExp = WELLNESS_TASKS.reduce((s, t) => s + t.exp, 0);
+  assert.equal(exp, totalWellnessExp);
+  // Wellness EXP does not consume the workout daily cap.
+  const w = applyWorkout(all, { type: 'run', minutes: 30, intensity: 'vigorous' }, now);
+  assert.equal(w.exp, DAILY_EXP_CAP);
 });
 
 test('to-dos from two members level the club together', () => {
@@ -207,22 +200,20 @@ test('invite codes are 6 unambiguous characters', () => {
 
 test('untick gives back exactly what that tick earned (F3, F4)', () => {
   let m = {};
-  const ticks = ['water', 'stretch', 'outside', 'stairs']; // 4th pays EXP but no coins
+  const ticks = ['water', 'stretch', 'outside', 'stairs'];
   let coins = 0;
   for (const id of ticks) { const r = applyWellness(m, id, now); coins += r.coins; m = r.member; }
-  assert.equal(coins, 35);
-  assert.equal(m.todayExp, 20);
-  // Untick the unpaid 4th: coins stay, its 5 EXP comes back off.
+  assert.equal(coins, 45); // water 10 + stretch 10 + outside 15 + stairs 10
+  // Untick stairs: its coins and EXP come back off.
   let u = undoWellness(m, 'stairs', now);
-  assert.deepEqual([u.coins, u.exp], [0, -5]);
+  assert.deepEqual([u.coins, u.exp], [-10, -5]);
   m = u.member;
-  assert.equal(m.todayExp, 15);
   assert.ok(!m.wellnessDone.includes('stairs'));
-  // Untick a paid one: its 10 coins come back off.
+  // Untick water: its coins and EXP come back off.
   u = undoWellness(m, 'water', now);
   assert.deepEqual([u.coins, u.exp], [-10, -5]);
   m = u.member;
-  // Re-tick: pays again (only 2 paid ticks are left), never twice at once.
+  // Re-tick water: pays again, never twice at once.
   const again = applyWellness(m, 'water', now);
   assert.equal(again.coins, 10);
   assert.throws(() => undoWellness(again.member, 'sleep', now), /Not ticked/);
