@@ -5,6 +5,7 @@
 export const DAILY_EXP_CAP = 60; // per member per day, bonuses included
 export const WORKOUT_COINS = 10; // finishing a workout pays the shared pot
 export const WELLNESS_COINS = 5;
+export const WELLNESS_EXP = 5; // every to-do adds EXP to the club (inside the daily cap)
 export const WELLNESS_MAX_PER_DAY = 3;
 export const GROUP_GOAL_COINS = 20;
 export const GROUP_GOAL_MINUTES = 10; // "everyone moves 10 minutes today"
@@ -33,6 +34,10 @@ export const WELLNESS_TASKS = [
   { id: 'stretch', label: 'Stretch 5 minutes' },
   { id: 'outside', label: '10 minutes outside' },
   { id: 'sleep', label: 'Slept 7+ hours' },
+  { id: 'stairs', label: 'Took the stairs' },
+  { id: 'veggies', label: 'Ate a veggie-packed meal' },
+  { id: 'breathe', label: '5 minutes of deep breathing' },
+  { id: 'screens', label: 'Phone-free hour before bed' },
 ];
 
 export const MOODS = ['great', 'okay', 'tired'];
@@ -176,7 +181,13 @@ export function applyWellness(member, taskId, now = new Date()) {
   const m = freshMember(member, now);
   if (m.wellnessDone.includes(taskId)) throw new Error('Already done today.');
   const coins = m.wellnessDone.length < WELLNESS_MAX_PER_DAY ? WELLNESS_COINS : 0;
-  return { coins, member: { ...m, wellnessDone: [...m.wellnessDone, taskId] } };
+  const exp = Math.min(WELLNESS_EXP, Math.max(0, DAILY_EXP_CAP - m.todayExp));
+  return {
+    coins,
+    exp,
+    capped: exp < WELLNESS_EXP,
+    member: { ...m, wellnessDone: [...m.wellnessDone, taskId], todayExp: m.todayExp + exp },
+  };
 }
 
 // ---------- group goals ----------
