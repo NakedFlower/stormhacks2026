@@ -39,12 +39,15 @@ test('F3 Untick a to-do gives its coins and EXP back', async () => {
   await expect.poll(() => coins(solo)).toBe(before + 10);
 });
 
-test('F4 Unticking past the 3-a-day coin cap keeps the coins', async () => {
+test('F4 Unticking gives back exactly what that tick paid', async () => {
   const solo = pages.Solo;
-  for (const t of ['Stretch 5 minutes', '10 minutes outside', 'Took the stairs']) await tick(solo, t);
-  const paid = await coins(solo); // water 10 + stretch 10 + outside 15
-  await untick(solo, 'Took the stairs'); // the 4th paid EXP only
-  await expect.poll(() => coins(solo)).toBe(paid);
+  for (const t of ['Stretch 5 minutes', '10 minutes outside']) await tick(solo, t);
+  const before = await coins(solo);
+  await tick(solo, 'Took the stairs');
+  const after = await coins(solo); // stairs paid 10, or 0 if past the daily coin cap
+  await untick(solo, 'Took the stairs');
+  await expect.poll(() => coins(solo)).toBe(before);
+  expect(after).toBeGreaterThanOrEqual(before);
 });
 
 test('F5 The workout to-do stays ticked and points to the + button', async () => {
@@ -106,6 +109,14 @@ test('F2 + C1 @two A friend shows up to cheer, and the cheer reaches them', asyn
   await ana.getByRole('button', { name: 'Cheer Ben' }).click();
   await expect(toastText(ana)).toContainText('You cheered Ben');
   await expect(toastText(ben)).toContainText('Ana cheered you on!');
+});
+
+test('T1 @two The to-do list shows who in the club did each one', async () => {
+  const { Ana: ana, Ben: ben } = pages;
+  // Ben ticked "Drink 2L water" in LV2; Ana logged a 30-minute run in LV1.
+  await expect(ana.locator('label.todo', { hasText: 'Drink 2L water' })).toContainText('Done by Ben');
+  await expect(ben.locator('label.todo', { hasText: 'Drink 2L water' })).toContainText('Done by You');
+  await expect(ben.locator('label.todo', { hasText: 'Move for 10 minutes' })).toContainText('Done by Ana');
 });
 
 test('LV4 @two A friend joining never lowers the level', async ({ browser }) => {

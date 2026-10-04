@@ -34,6 +34,16 @@ export default function Home({ onLog }) {
   const iWorkedOut = me?.todayDate === today && (me.todayMinutes ?? 0) >= GROUP_GOAL_MINUTES;
   const paid = me?.todayDate === today ? me.wellnessPaid ?? {} : {};
   const alone = members.length <= 1;
+
+  // Club view of the to-do list (Ko): who in the club has done each one today.
+  // Comes from the members' own docs, which already update live on every phone.
+  const nameOf = (m) => (m.id === me?.id ? 'You' : m.displayName);
+  const doneBy = (taskId) => members
+    .filter((m) => m.todayDate === today && (m.wellnessDone ?? []).includes(taskId))
+    .map(nameOf);
+  const movedBy = members
+    .filter((m) => m.todayDate === today && (m.todayMinutes ?? 0) >= GROUP_GOAL_MINUTES)
+    .map(nameOf);
   const live = broadcasts.filter((b) => b.expiresAt > Date.now());
 
   async function wellness(id) {
@@ -127,7 +137,7 @@ export default function Home({ onLog }) {
         <label className="todo">
           <input type="checkbox" checked={iWorkedOut}
             onChange={() => (iWorkedOut ? toast('Logged today. Log another from the + button.') : onLog())} />
-          <span style={{ flex: 1, fontWeight: 700 }}>Move for {GROUP_GOAL_MINUTES} minutes</span>
+          <TodoLabel text={`Move for ${GROUP_GOAL_MINUTES} minutes`} names={alone ? [] : movedBy} />
           <span className="reward">EXP + 10 c</span>
         </label>
         {WELLNESS_TASKS.map((t) => {
@@ -135,13 +145,25 @@ export default function Home({ onLog }) {
           return (
             <label key={t.id} className="todo">
               <input type="checkbox" checked={done} onChange={() => (done ? untick(t.id) : wellness(t.id))} />
-              <span style={{ flex: 1, fontWeight: 700 }}>{t.label}</span>
+              <TodoLabel text={t.label} names={alone ? [] : doneBy(t.id)} />
               <span className="reward">+{t.exp ?? WELLNESS_EXP} EXP{(done ? (paid[t.id]?.coins ?? 0) > 0 : myWellness.length < WELLNESS_MAX_PER_DAY) ? ` + ${t.coins} c` : ''}</span>
             </label>
           );
         })}
       </div>
     </div>
+  );
+}
+
+// A to-do's label, plus who in the club has done it today ("Done by You, Ben").
+function TodoLabel({ text, names }) {
+  return (
+    <span style={{ flex: 1 }}>
+      <span style={{ fontWeight: 700, display: 'block' }}>{text}</span>
+      {names.length > 0 && (
+        <span className="small" style={{ color: 'var(--pink-dark)', fontWeight: 700 }}>Done by {names.join(', ')}</span>
+      )}
+    </span>
   );
 }
 
