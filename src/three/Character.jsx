@@ -11,18 +11,15 @@ import { useRef, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 
 const HAT_MAP = { cap: 'PropellerBeanie', crown: 'Crown', bow: 'Bow' };
+const HAT_OFFSET = { cap: [0.8, -0.5, 0], crown: [0, 0, 0], bow: [0.6, 0, 0] };
+const HAT_ROTATION = { cap: [0.4, 0, 0.3], crown: [0, 0, 0], bow: [0, 0, 0] };
+const HAT_CAM_Z = { cap: 10, crown: 8.3, bow: 6.9 };
 const BODY_SCALE = { baby: 0.72, kid: 0.86, teen: 0.98, adult: 1.08 };
 
 function Creature({ stage, equipped, awake, popKey }) {
   const { scene: charScene } = useGLTF('/models/character.glb');
   const { nodes: hatNodes } = useGLTF('/models/hats.glb');
-  const model = useMemo(() => {
-    const clone = charScene.clone(true);
-    clone.traverse((obj) => {
-      if (obj.isMesh) obj.material = new THREE.MeshStandardMaterial({ color: '#f2c230', roughness: 0.6 });
-    });
-    return clone;
-  }, [charScene]);
+  const model = useMemo(() => charScene.clone(true), [charScene]);
   const root = useRef();
   const pop = useRef({ key: popKey, at: -10 });
   const size = BODY_SCALE[stage] ?? BODY_SCALE.baby;
@@ -64,6 +61,38 @@ function Creature({ stage, equipped, awake, popKey }) {
     <group scale={0.22} position={[0.05, -1.03, 0]}>
       <primitive ref={root} object={model} />
     </group>
+  );
+}
+
+function HatMesh({ hatName }) {
+  const { nodes } = useGLTF('/models/hats.glb');
+  const clone = useMemo(() => {
+    const node = nodes[hatName];
+    if (!node) return null;
+    const c = node.clone(true);
+    c.position.set(0, 0, 0);
+    return c;
+  }, [nodes, hatName]);
+  if (!clone) return null;
+  return <primitive object={clone} />;
+}
+
+export function HatPreview({ itemId, size = 100 }) {
+  const hatName = HAT_MAP[itemId];
+  const offset = HAT_OFFSET[itemId] ?? [0, 0, 0];
+  const rotation = HAT_ROTATION[itemId] ?? [0, 0, 0];
+  const camZ = HAT_CAM_Z[itemId] ?? 10;
+  if (!hatName) return null;
+  return (
+    <div style={{ width: size, height: size }}>
+      <Canvas camera={{ position: [0, 0, camZ], fov: 40 }} dpr={[1, 2]}>
+        <ambientLight intensity={1} />
+        <directionalLight position={[20, 40, 30]} intensity={1.5} />
+        <group position={offset} rotation={rotation}>
+          <HatMesh hatName={hatName} />
+        </group>
+      </Canvas>
+    </div>
   );
 }
 
