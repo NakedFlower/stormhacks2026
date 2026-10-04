@@ -88,6 +88,11 @@ test('bonuses: buddy multiplies the workout, variety adds after, cap applies las
   const nearCap = applyWorkout({ todayDate: dayKey(now), todayExp: 50 }, { type: 'walk', minutes: 4, intensity: 'light' }, now, { buddy: true });
   assert.equal(nearCap.exp, 10, 'bonuses never push past the cap');
   assert.equal(nearCap.member.todayExp, DAILY_EXP_CAP);
+  assert.equal(nearCap.capped, true);
+  const buddyOnly = applyWorkout(regular, { type: 'run', minutes: 26, intensity: 'vigorous' }, now, { buddy: true });
+  assert.equal(buddyOnly.variety, false);
+  assert.equal(buddyOnly.exp, DAILY_EXP_CAP, '52 x 1.25 = 65, no variety, capped to 60');
+  assert.equal(buddyOnly.capped, true);
 });
 
 test('week minutes reset on Monday', () => {
