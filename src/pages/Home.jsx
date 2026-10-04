@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import Character from '../three/Character.jsx';
 import { useClub } from '../components/ClubContext.jsx';
 import { api, useSession } from '../lib/db.js';
-import { ACTIVITIES, WELLNESS_TASKS, dailyGoal, isActiveToday, dayKey, GROUP_GOAL_MINUTES } from '../lib/rules.js';
+import { ACTIVITIES, WELLNESS_TASKS, WELLNESS_MAX_PER_DAY, dailyGoal, isActiveToday, dayKey, GROUP_GOAL_MINUTES } from '../lib/rules.js';
 import { BoltIcon, CoinIcon, ChevronRight } from '../components/Icons.jsx';
 
 export default function Home({ onLog }) {
@@ -99,9 +99,10 @@ export default function Home({ onLog }) {
         </label>
         {WELLNESS_TASKS.map((t) => {
           const done = myWellness.includes(t.id);
+          const willEarnCoins = done || myWellness.length < WELLNESS_MAX_PER_DAY;
           const rewardParts = [];
           if (t.exp) rewardParts.push(`+${t.exp} EXP`);
-          rewardParts.push(`+${t.coins} c`);
+          rewardParts.push(willEarnCoins ? `+${t.coins} c` : '0 c');
           return (
             <label key={t.id} className="todo">
               <input type="checkbox" checked={done} disabled={done} onChange={() => wellness(t.id)} />
