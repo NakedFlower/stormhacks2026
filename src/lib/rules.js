@@ -5,7 +5,7 @@
 export const DAILY_EXP_CAP = 60; // per member per day, bonuses included
 export const WORKOUT_COINS = 10; // finishing a workout pays the shared pot
 export const WELLNESS_COINS = 5;
-export const WELLNESS_EXP = 5; // default EXP per to-do; a task can set its own `exp`. Always inside the daily cap.
+export const WELLNESS_EXP = 5; // default EXP per to-do; a task can set its own `exp`.
 export const WELLNESS_MAX_PER_DAY = 14;
 export const GROUP_GOAL_COINS = 20;
 export const GROUP_GOAL_MINUTES = 10; // "everyone moves 10 minutes today"
@@ -222,17 +222,14 @@ export function applyWellness(member, taskId, now = new Date()) {
   const m = freshMember(member, now);
   if (m.wellnessDone.includes(taskId)) throw new Error('Already done today.');
   const coins = m.wellnessDone.length < WELLNESS_MAX_PER_DAY ? (task.coins ?? WELLNESS_COINS) : 0;
-  const full = task.exp ?? WELLNESS_EXP;
-  const exp = Math.min(full, Math.max(0, DAILY_EXP_CAP - m.todayExp));
+  const exp = task.exp ?? WELLNESS_EXP;
   return {
     coins,
     exp,
-    capped: exp < full,
     member: {
       ...m,
       wellnessDone: [...m.wellnessDone, taskId],
       wellnessPaid: { ...m.wellnessPaid, [taskId]: { coins, exp } },
-      todayExp: m.todayExp + exp,
     },
   };
 }
@@ -251,7 +248,6 @@ export function undoWellness(member, taskId, now = new Date()) {
       ...m,
       wellnessDone: m.wellnessDone.filter((id) => id !== taskId),
       wellnessPaid: restPaid,
-      todayExp: Math.max(0, m.todayExp - paid.exp),
     },
   };
 }
