@@ -7,7 +7,9 @@
 // proxy CA there, once, keeping certificate checks ON. It only touches the test
 // machine: the live site and real phones are not affected.
 //
-// It does nothing when there is no proxy, no CA file, or no certutil (a normal laptop).
+// It does nothing when there is no proxy or no CA file (a normal laptop). With a proxy
+// and a CA but no certutil it stops the run, so a missing tool never shows up as
+// "Network error" in the tests.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -24,7 +26,11 @@ export default function globalSetup() {
   if (!(process.env.HTTPS_PROXY || process.env.https_proxy)) return;
   const ca = CA_CANDIDATES.find((p) => p && existsSync(p));
   if (!ca) return;
-  try { run('certutil', ['-H']); } catch (e) { if (e.code === 'ENOENT') return; }
+  try { run('certutil', ['-H']); } catch (e) {
+    if (e.code === 'ENOENT') {
+      throw new Error(`Install libnss3-tools so Chromium can trust the proxy CA (certutil not found; needed to add ${ca} to ~/.pki/nssdb).`);
+    }
+  }
 
   const dir = join(homedir(), '.pki', 'nssdb');
   const db = `sql:${dir}`;
