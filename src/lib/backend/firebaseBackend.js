@@ -109,8 +109,8 @@ export function createFirebaseBackend(config) {
         const mSnap = await tx.get(memberRef(gid));
         const r = applyWellness(mSnap.data(), taskId, new Date());
         tx.set(memberRef(gid), r.member, { merge: true });
-        if (r.coins) tx.update(groupRef(gid), { coins: increment(r.coins) });
-        return { coins: r.coins };
+        if (r.coins || r.exp) tx.update(groupRef(gid), { coins: increment(r.coins), exp: increment(r.exp) });
+        return { coins: r.coins, exp: r.exp, capped: r.capped };
       });
     },
 

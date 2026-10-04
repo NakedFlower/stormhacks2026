@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import Character from '../three/Character.jsx';
 import { useClub } from '../components/ClubContext.jsx';
 import { api, useSession } from '../lib/db.js';
-import { ACTIVITIES, WELLNESS_TASKS, WELLNESS_MAX_PER_DAY, dailyGoal, isActiveToday, dayKey, GROUP_GOAL_MINUTES } from '../lib/rules.js';
+import { ACTIVITIES, WELLNESS_TASKS, WELLNESS_MAX_PER_DAY, WELLNESS_EXP, dailyGoal, isActiveToday, dayKey, GROUP_GOAL_MINUTES } from '../lib/rules.js';
 import { BoltIcon, CoinIcon, ChevronRight } from '../components/Icons.jsx';
 
 export default function Home({ onLog }) {
@@ -34,7 +34,10 @@ export default function Home({ onLog }) {
   async function wellness(id) {
     try {
       const r = await api.doWellness(gid, id);
-      toast(r.coins ? `+${r.coins} coins to the pot` : 'Done! (coins max out at 3 a day)');
+      const parts = [];
+      if (r.exp) parts.push(`+${r.exp} EXP`);
+      if (r.coins) parts.push(`+${r.coins} coins`);
+      toast(parts.length ? `${parts.join(' · ')} for the club` : 'Done! (you hit today’s EXP and coin caps)');
     } catch (e) { toast(e.message); }
   }
 
@@ -100,7 +103,7 @@ export default function Home({ onLog }) {
             <label key={t.id} className="todo">
               <input type="checkbox" checked={done} disabled={done} onChange={() => wellness(t.id)} />
               <span style={{ flex: 1, fontWeight: 700 }}>{t.label}</span>
-              <span className="reward">{myWellness.length < WELLNESS_MAX_PER_DAY || done ? '+5 c' : '0 c'}</span>
+              <span className="reward">+{WELLNESS_EXP} EXP{(done ? myWellness.indexOf(t.id) < WELLNESS_MAX_PER_DAY : myWellness.length < WELLNESS_MAX_PER_DAY) ? ' + 5 c' : ''}</span>
             </label>
           );
         })}

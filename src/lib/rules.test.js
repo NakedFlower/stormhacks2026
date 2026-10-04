@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   activityExp, applyWorkout, applyWellness, dailyGoal, levelInfo, expToNext,
   freshMember, dayKey, weekKey, makeInviteCode, hasBuddy, DAILY_EXP_CAP,
+  WELLNESS_TASKS, WELLNESS_EXP,
 } from './rules.js';
 import { ITEMS, cannotBuy, equipList, priceFor, itemById } from './items.js';
 import { ITEM_MODELS } from '../three/itemModels.js';
@@ -118,6 +119,33 @@ test('wellness: coins for the first 3 per day, no repeats', () => {
   }
   assert.equal(total, 15);
   assert.throws(() => applyWellness(m, 'water', now));
+});
+
+test('wellness: every to-do adds 5 EXP, inside the daily cap', () => {
+  let m = {};
+  let exp = 0;
+  for (const t of WELLNESS_TASKS) {
+    const r = applyWellness(m, t.id, now);
+    exp += r.exp;
+    m = r.member;
+  }
+  assert.equal(WELLNESS_TASKS.length, 8);
+  assert.equal(exp, 8 * WELLNESS_EXP);
+  assert.equal(m.todayExp, 40);
+  // Near the cap: only the room left counts, and the flag says so.
+  const near = applyWellness({ todayDate: dayKey(now), todayExp: DAILY_EXP_CAP - 2 }, 'water', now);
+  assert.equal(near.exp, 2);
+  assert.equal(near.capped, true);
+  // A workout after the to-dos shares the same 60 cap.
+  const w = applyWorkout(m, { type: 'run', minutes: 30, intensity: 'vigorous' }, now);
+  assert.equal(w.exp, DAILY_EXP_CAP - 40);
+});
+
+test('to-dos from two members level the club together', () => {
+  // 2 members need 40 EXP for Lv 2: 4 to-dos each gets there.
+  const perMember = 4 * WELLNESS_EXP;
+  assert.equal(levelInfo(perMember, 2).level, 1);
+  assert.equal(levelInfo(perMember * 2, 2).level, 2);
 });
 
 test('levels scale with group size', () => {
