@@ -1,4 +1,4 @@
-// To-dos add EXP (W1-W4). Every to-do adds 5 EXP to the club, so members' to-dos
+// To-dos add EXP (W1-W4). Every to-do adds EXP to the club (5-12 each, inside the daily cap), so members' to-dos
 // add up to new levels, and levels unlock the shop. Runs against BASE_URL and writes
 // to the real database; every club name starts with "E2E ".
 // W2 needs real shared data (Firebase): it fails in demo mode, where each browser is its own world.
@@ -10,7 +10,7 @@ test.describe.configure({ mode: 'serial' });
 const SOLO = 'E2E To-dos Solo';
 const TEAM = 'E2E To-dos Team';
 const FOUR = ['Drink 2L water', 'Stretch 5 minutes', '10 minutes outside', 'Took the stairs'];
-const ALL = [...FOUR, 'Slept 7+ hours', 'Ate a veggie-packed meal', '5 minutes of deep breathing', 'Phone-free hour before bed'];
+// Every to-do on Home shows an EXP reward (values per task, set in src/lib/rules.js).
 
 const contexts = [];
 const pages = {};
@@ -57,10 +57,13 @@ test.afterAll(async () => {
   await Promise.all(contexts.map((c) => c.close()));
 });
 
-test('W1 Every to-do shows +5 EXP and four of them level a solo club', async ({ browser }) => {
+test('W1 Every to-do shows EXP and four of them level a solo club', async ({ browser }) => {
   const ana = await person(browser, 'Ana');
   await startClub(ana, SOLO);
-  for (const task of ALL) {
+  const todos = ana.locator('label.todo');
+  await expect(todos).toHaveCount(16); // "Move for 10 minutes" + 15 to-dos
+  for (const label of await todos.allInnerTexts()) expect(label).toMatch(/EXP/);
+  for (const task of FOUR) {
     await expect(ana.locator('label.todo', { hasText: task })).toContainText('+5 EXP');
   }
   await expect(levelPill(ana)).toContainText('Level 1');

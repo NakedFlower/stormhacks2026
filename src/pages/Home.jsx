@@ -103,7 +103,7 @@ export default function Home({ onLog }) {
             <label key={t.id} className="todo">
               <input type="checkbox" checked={done} disabled={done} onChange={() => wellness(t.id)} />
               <span style={{ flex: 1, fontWeight: 700 }}>{t.label}</span>
-              <span className="reward">+{WELLNESS_EXP} EXP{(done ? myWellness.indexOf(t.id) < WELLNESS_MAX_PER_DAY : myWellness.length < WELLNESS_MAX_PER_DAY) ? ' + 5 c' : ''}</span>
+              <span className="reward">+{t.exp ?? WELLNESS_EXP} EXP{(done ? myWellness.indexOf(t.id) < WELLNESS_MAX_PER_DAY : myWellness.length < WELLNESS_MAX_PER_DAY) ? ` + ${t.coins} c` : ''}</span>
             </label>
           );
         })}

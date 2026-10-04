@@ -117,32 +117,40 @@ test('wellness: coins for the first 3 per day, no repeats', () => {
     total += r.coins;
     m = r.member;
   }
-  assert.equal(total, 15);
+  assert.equal(total, 35);
   assert.throws(() => applyWellness(m, 'water', now));
 });
 
-test('wellness: every to-do adds 5 EXP, inside the daily cap', () => {
-  let m = {};
-  let exp = 0;
+test('wellness: every to-do adds its EXP, never past the daily cap', () => {
   for (const t of WELLNESS_TASKS) {
-    const r = applyWellness(m, t.id, now);
-    exp += r.exp;
-    m = r.member;
+    assert.ok(t.exp > 0, `${t.id} must add EXP`);
+    assert.ok(t.coins > 0, `${t.id} must have a coin value`);
   }
-  assert.equal(WELLNESS_TASKS.length, 8);
-  assert.equal(exp, 8 * WELLNESS_EXP);
-  assert.equal(m.todayExp, 40);
-  // Near the cap: only the room left counts, and the flag says so.
-  const near = applyWellness({ todayDate: dayKey(now), todayExp: DAILY_EXP_CAP - 2 }, 'water', now);
-  assert.equal(near.exp, 2);
-  assert.equal(near.capped, true);
+  // Four 5-EXP to-dos: 20 EXP, still room under the cap.
+  let m = {};
+  for (const id of ['water', 'stretch', 'outside', 'stairs']) m = applyWellness(m, id, now).member;
+  assert.equal(m.todayExp, 20);
   // A workout after the to-dos shares the same 60 cap.
   const w = applyWorkout(m, { type: 'run', minutes: 30, intensity: 'vigorous' }, now);
-  assert.equal(w.exp, DAILY_EXP_CAP - 40);
+  assert.equal(w.exp, DAILY_EXP_CAP - 20);
+  // Ticking everything never goes past the cap, however many to-dos there are.
+  let all = {};
+  let exp = 0;
+  for (const t of WELLNESS_TASKS) {
+    const r = applyWellness(all, t.id, now);
+    exp += r.exp;
+    all = r.member;
+  }
+  assert.equal(exp, DAILY_EXP_CAP);
+  assert.equal(all.todayExp, DAILY_EXP_CAP);
+  // Near the cap: only the room left counts, and the flag says so.
+  const near = applyWellness({ todayDate: dayKey(now), todayExp: DAILY_EXP_CAP - 2 }, 'steps', now);
+  assert.equal(near.exp, 2);
+  assert.equal(near.capped, true);
 });
 
 test('to-dos from two members level the club together', () => {
-  // 2 members need 40 EXP for Lv 2: 4 to-dos each gets there.
+  // 2 members need 40 EXP for Lv 2: four 5-EXP to-dos each gets there.
   const perMember = 4 * WELLNESS_EXP;
   assert.equal(levelInfo(perMember, 2).level, 1);
   assert.equal(levelInfo(perMember * 2, 2).level, 2);
@@ -178,7 +186,7 @@ test('shop: level gate, coins gate, legendary never sold', () => {
   assert.equal(cannotBuy(itemById('cap'), group, 2, 1), null);
   assert.equal(priceFor(itemById('cap'), 4), 120);
   assert.match(cannotBuy(itemById('cap'), group, 2, 4), /coins/);
-  assert.match(cannotBuy(itemById('bow'), { coins: 9999, owned: [] }, 5, 1), /Lv 6/);
+  assert.match(cannotBuy(itemById('bow'), { coins: 9999, owned: [] }, 2, 1), /Lv 3/);
   assert.equal(cannotBuy(itemById('cap'), { coins: 100, owned: ['cap'] }, 2, 1), 'Already owned.');
   assert.equal(cannotBuy(itemById('crown'), { coins: 9999 }, 99, 1), 'Not for sale.');
 });

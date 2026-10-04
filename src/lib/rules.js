@@ -5,7 +5,7 @@
 export const DAILY_EXP_CAP = 60; // per member per day, bonuses included
 export const WORKOUT_COINS = 10; // finishing a workout pays the shared pot
 export const WELLNESS_COINS = 5;
-export const WELLNESS_EXP = 5; // every to-do adds EXP to the club (inside the daily cap)
+export const WELLNESS_EXP = 5; // default EXP per to-do; a task can set its own `exp`. Always inside the daily cap.
 export const WELLNESS_MAX_PER_DAY = 3;
 export const GROUP_GOAL_COINS = 20;
 export const GROUP_GOAL_MINUTES = 10; // "everyone moves 10 minutes today"
@@ -29,15 +29,24 @@ export const ACTIVITIES = [
   { id: 'strength', label: 'Strength', intensity: 'moderate', usesSets: true },
 ];
 
+// Daily to-dos. Every one adds EXP to the club (counted inside each person's daily cap).
+// `coins` is paid only for the first WELLNESS_MAX_PER_DAY ticked each day. Values: Diana.
 export const WELLNESS_TASKS = [
-  { id: 'water', label: 'Drink 2L water' },
-  { id: 'stretch', label: 'Stretch 5 minutes' },
-  { id: 'outside', label: '10 minutes outside' },
-  { id: 'sleep', label: 'Slept 7+ hours' },
-  { id: 'stairs', label: 'Took the stairs' },
-  { id: 'veggies', label: 'Ate a veggie-packed meal' },
-  { id: 'breathe', label: '5 minutes of deep breathing' },
-  { id: 'screens', label: 'Phone-free hour before bed' },
+  { id: 'water', label: 'Drink 2L water', exp: 5, coins: 10 },
+  { id: 'stretch', label: 'Stretch 5 minutes', exp: 5, coins: 10 },
+  { id: 'outside', label: '10 minutes outside', exp: 5, coins: 15 },
+  { id: 'sleep', label: 'Slept 7+ hours', exp: 5, coins: 15 },
+  { id: 'stairs', label: 'Took the stairs', exp: 5, coins: 10 },
+  { id: 'meditate', label: 'Meditate 10 minutes', exp: 10, coins: 20 },
+  { id: 'steps', label: 'Hit 8,000 steps', exp: 12, coins: 25 },
+  { id: 'veggies', label: 'Eat veggies every meal', exp: 8, coins: 15 },
+  { id: 'no_screens', label: 'No screens 1 hr before bed', exp: 6, coins: 15 },
+  { id: 'journal', label: 'Journal for 5 minutes', exp: 6, coins: 15 },
+  { id: 'cold_shower', label: 'Cold shower 30 seconds', exp: 8, coins: 20 },
+  { id: 'read', label: 'Read for 20 minutes', exp: 8, coins: 15 },
+  { id: 'vitamins', label: 'Take your vitamins', exp: 5, coins: 10 },
+  { id: 'meal_prep', label: 'Prep a healthy meal', exp: 10, coins: 20 },
+  { id: 'gratitude', label: 'List 3 things you\'re grateful for', exp: 6, coins: 15 },
 ];
 
 export const MOODS = ['great', 'okay', 'tired'];
@@ -177,15 +186,17 @@ export function applyWorkout(member, input, now = new Date(), { buddy = false } 
 }
 
 export function applyWellness(member, taskId, now = new Date()) {
-  if (!WELLNESS_TASKS.some((t) => t.id === taskId)) throw new Error('Unknown task.');
+  const task = WELLNESS_TASKS.find((t) => t.id === taskId);
+  if (!task) throw new Error('Unknown task.');
   const m = freshMember(member, now);
   if (m.wellnessDone.includes(taskId)) throw new Error('Already done today.');
-  const coins = m.wellnessDone.length < WELLNESS_MAX_PER_DAY ? WELLNESS_COINS : 0;
-  const exp = Math.min(WELLNESS_EXP, Math.max(0, DAILY_EXP_CAP - m.todayExp));
+  const coins = m.wellnessDone.length < WELLNESS_MAX_PER_DAY ? (task.coins ?? WELLNESS_COINS) : 0;
+  const full = task.exp ?? WELLNESS_EXP;
+  const exp = Math.min(full, Math.max(0, DAILY_EXP_CAP - m.todayExp));
   return {
     coins,
     exp,
-    capped: exp < WELLNESS_EXP,
+    capped: exp < full,
     member: { ...m, wellnessDone: [...m.wellnessDone, taskId], todayExp: m.todayExp + exp },
   };
 }
