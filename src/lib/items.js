@@ -1,18 +1,14 @@
-// Shop catalog. The `id` is also the name of the add-on in the 3D model
-// (and of its GLB file in public/models/). Tell the team before renaming one.
+// Shop catalog. Only items Diana has modelled are listed; each id maps to a
+// node in public/models/hats.glb via ITEM_MODELS in src/three/itemModels.js.
+// To add an item later: model it, add it here and to ITEM_MODELS, run npm test.
 // Owner: Diana (looks) + Kelsie (prices).
 
 export const ITEMS = [
   // Common: 15-40 coins per member
-  { id: 'sunglasses', name: 'Sunglasses', tier: 'common', pricePerMember: 20, unlockLevel: 1, slot: 'face' },
-  { id: 'headband', name: 'Sweatband', tier: 'common', pricePerMember: 15, unlockLevel: 1, slot: 'head' },
   { id: 'cap', name: 'Club cap', tier: 'common', pricePerMember: 30, unlockLevel: 2, slot: 'head' },
-  { id: 'jacket', name: 'Varsity jacket', tier: 'common', pricePerMember: 40, unlockLevel: 3, slot: 'body' },
   // Rare: 100-300 coins per member
-  { id: 'scarf', name: 'Cozy scarf', tier: 'rare', pricePerMember: 100, unlockLevel: 4, slot: 'body' },
   { id: 'bow', name: 'Big bow', tier: 'rare', pricePerMember: 150, unlockLevel: 6, slot: 'head' },
   // Legendary: never sold, unlocked by a challenge
-  { id: 'aura', name: 'Golden aura', tier: 'legendary', challenge: 'allActive', slot: 'aura' },
   { id: 'crown', name: 'Club crown', tier: 'legendary', challenge: 'goals10', slot: 'head' },
 ];
 

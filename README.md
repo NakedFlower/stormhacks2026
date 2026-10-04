@@ -70,8 +70,9 @@ groups/{gid}/broadcasts/{id}           { uid, name, activity, time, going[], cre
 
 ## 3D contract (Diana ↔ code)
 
-- Character GLB has empties named `anchor_head`, `anchor_face`, `anchor_body`.
-- Add-on ids in `lib/items.js` (`sunglasses`, `headband`, `cap`, `jacket`, `scarf`, `bow`, `aura`, `crown`) match the GLB/object names.
+- `public/models/character.glb` (the otter) has an empty named `HatAnchor`; the equipped hat attaches there.
+- `public/models/hats.glb` holds the add-ons. `src/three/itemModels.js` maps each shop id (`cap`, `bow`, `crown`) to its node and Shop preview framing.
+- Every item in `lib/items.js` needs an entry in `itemModels.js`; `npm test` fails otherwise. New add-ons go in a later build.
 - Movement is code (`useFrame`): bounce when someone moved today, nap otherwise, pop on tap and level-up. Never sad or sick.
 - Keep each GLB under 5 MB.
 

@@ -1,6 +1,6 @@
 // Locker shop: spend the shared coin pot on add-ons.
 import { useState } from 'react';
-import Character from '../three/Character.jsx';
+import Character, { HatPreview } from '../three/Character.jsx';
 import { useClub } from '../components/ClubContext.jsx';
 import { api } from '../lib/db.js';
 import { ITEMS, priceFor, cannotBuy, challengeProgress } from '../lib/items.js';
@@ -51,7 +51,7 @@ export default function Shop() {
           const why = legendary ? null : cannotBuy(item, group, info.level, memberCount);
           return (
             <div key={item.id} className="card stack" style={{ gap: 8 }}>
-              <div className={`thumb ${item.tier}`}>{item.name}</div>
+              <HatPreview itemId={item.id} size={100} />
               <strong>{item.name}</strong>
               <span className="small" style={{ fontWeight: 900 }}>
                 {legendary ? (unlocked ? 'Unlocked' : 'Challenge reward') : isOwned ? 'Owned' : `${priceFor(item, memberCount)} coins`}

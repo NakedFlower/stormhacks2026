@@ -5,7 +5,8 @@ import {
   activityExp, applyWorkout, applyWellness, dailyGoal, levelInfo, expToNext,
   freshMember, dayKey, weekKey, makeInviteCode, hasBuddy, DAILY_EXP_CAP,
 } from './rules.js';
-import { cannotBuy, equipList, priceFor, itemById } from './items.js';
+import { ITEMS, cannotBuy, equipList, priceFor, itemById } from './items.js';
+import { ITEM_MODELS } from '../three/itemModels.js';
 
 const now = new Date(2026, 9, 3, 18, 0); // Sat Oct 3 2026, local time
 // Already logged these types this week, so no variety bonus muddies the numbers.
@@ -145,16 +146,22 @@ test('daily group goal completes at 75% of members', () => {
 
 test('shop: level gate, coins gate, legendary never sold', () => {
   const group = { coins: 100, owned: [] };
-  assert.equal(cannotBuy(itemById('sunglasses'), group, 1, 4), null);
-  assert.equal(priceFor(itemById('sunglasses'), 4), 80);
-  assert.match(cannotBuy(itemById('jacket'), group, 1, 4), /Lv 3/);
-  assert.match(cannotBuy(itemById('jacket'), group, 3, 4), /coins/);
-  assert.equal(cannotBuy(itemById('aura'), { coins: 9999 }, 99, 1), 'Not for sale.');
+  assert.match(cannotBuy(itemById('cap'), group, 1, 1), /Lv 2/);
+  assert.equal(cannotBuy(itemById('cap'), group, 2, 1), null);
+  assert.equal(priceFor(itemById('cap'), 4), 120);
+  assert.match(cannotBuy(itemById('cap'), group, 2, 4), /coins/);
+  assert.match(cannotBuy(itemById('bow'), { coins: 9999, owned: [] }, 5, 1), /Lv 6/);
+  assert.equal(cannotBuy(itemById('cap'), { coins: 100, owned: ['cap'] }, 2, 1), 'Already owned.');
+  assert.equal(cannotBuy(itemById('crown'), { coins: 9999 }, 99, 1), 'Not for sale.');
 });
 
-test('equip: one item per slot', () => {
-  assert.deepEqual(equipList(['cap'], itemById('headband')), ['headband']);
-  assert.deepEqual(equipList(['cap', 'sunglasses'], itemById('cap')), ['sunglasses']);
+test('equip: one item per slot, tap again to take off', () => {
+  assert.deepEqual(equipList(['cap'], itemById('bow')), ['bow']);
+  assert.deepEqual(equipList(['bow'], itemById('bow')), []);
+});
+
+test('every shop item has a 3D model', () => {
+  for (const item of ITEMS) assert.ok(ITEM_MODELS[item.id], `${item.id} has no model in src/three/itemModels.js`);
 });
 
 test('invite codes are 6 unambiguous characters', () => {
