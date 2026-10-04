@@ -1,7 +1,7 @@
 // Seed three demo clubs, each started by a new person (a fresh browser context).
 // Each club's invite code is read right after the club is created, before anything
-// else can fail: the person is a throwaway anonymous user and only members can read
-// the code, so a club whose code wasn't saved can never be reached again.
+// else can fail. The owner's email and password are saved too, so the club can
+// always be reached again by signing in.
 import fs from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { BASE_URL, PHONE } from '../../playwright.config.js';
@@ -9,6 +9,7 @@ import { BASE_URL, PHONE } from '../../playwright.config.js';
 test.describe.configure({ mode: 'serial' });
 
 const CODES_FILE = process.env.CODES_FILE || 'seed-demo-codes.txt';
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'fitkin-demo-2026';
 const CLUBS = ['Sunrise Swim Club', 'Badminton Bunch', 'Res Hall Hikers'];
 const contexts = [];
 
@@ -29,10 +30,18 @@ async function startClub(browser, name, club) {
   contexts.push(context);
   const page = await context.newPage();
   await page.goto('/');
+  // Sign-up comes first now. Throwaway account; its email and password are saved with the code.
+  const email = `demo-${name.toLowerCase()}-${Date.now().toString(36)}@fitkin.test`;
+  await page.getByRole('tab', { name: 'Create account' }).click();
   await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(DEMO_PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).last().click();
+  fs.appendFileSync(CODES_FILE, `${name}: ${email} / ${DEMO_PASSWORD}\n`);
   await page.getByRole('tab', { name: 'Start a club' }).click();
   await page.getByLabel('Club name').fill(club);
   await page.getByRole('button', { name: 'Start club' }).click();
+  await page.getByRole('button', { name: /Start our club/ }).click();
   await expect(page.getByRole('link', { name: club, exact: true })).toBeVisible();
   await saveInviteCode(page, club);
   await nav(page).getByRole('link', { name: 'Home' }).click();

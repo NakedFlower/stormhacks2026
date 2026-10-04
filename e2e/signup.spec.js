@@ -1,7 +1,7 @@
 // L4 sign-up and invite flows (S1-S8). Runs against BASE_URL and writes to the real
 // database. Every club name starts with "E2E " so test data is easy to find and delete.
 //
-// Each person is a fresh browser context, which the app treats as a new anonymous user.
+// Each person is a fresh browser context that signs up with a throwaway e2e-*@fitkin.test email.
 // Cases run in order and share state: later cases reuse S1's invite code and contexts.
 import { test, expect } from '@playwright/test';
 import { BASE_URL, PHONE } from '../playwright.config.js';
@@ -14,11 +14,21 @@ const FLOOR = 'E2E Floor 4';
 const people = {};
 let inviteCode = '';
 
+const PASSWORD = 'fitkin-e2e-pass';
+const RUN = Date.now().toString(36);
+const emailFor = (name) => `e2e-${name.toLowerCase()}-${RUN}@fitkin.test`;
+
+// A new person = a fresh browser context that creates an account, landing on the join screen.
 async function newPerson(browser, name) {
   const context = await browser.newContext({ baseURL: BASE_URL, viewport: PHONE });
   const page = await context.newPage();
   await page.goto('/');
-  await expect(page.getByLabel('Your name')).toBeVisible();
+  await page.getByRole('tab', { name: 'Create account' }).click();
+  await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Email').fill(emailFor(name));
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).last().click();
+  await expect(page.getByLabel('Invite code')).toBeVisible();
   people[name] = { context, page };
   return page;
 }
@@ -28,6 +38,9 @@ async function startClub(page, name, club) {
   await page.getByRole('tab', { name: 'Start a club' }).click();
   await page.getByLabel('Club name').fill(club);
   await page.getByRole('button', { name: 'Start club' }).click();
+  // New clubs open a "Club created!" card with the invite code first.
+  await expect(page.locator('.code-display')).toHaveText(/^[A-Z0-9]{6}$/);
+  await page.getByRole('button', { name: /Start our club/ }).click();
 }
 
 async function joinClub(page, name, code) {
@@ -40,7 +53,7 @@ async function joinClub(page, name, code) {
 async function expectHome(page, club) {
   await expect(page.getByRole('link', { name: club, exact: true })).toBeVisible();
   await expect(page.getByText("Today's glow")).toBeVisible();
-  await expect(page.getByLabel('Your name')).toHaveCount(0);
+  await expect(page.getByLabel('Invite code')).toHaveCount(0);
 }
 
 const myClubs = (page) => page.locator('.card', { has: page.getByText('My clubs', { exact: true }) });
@@ -134,4 +147,69 @@ test('S8 Second club', async () => {
   await expect(clubs.locator('.between', { hasText: CREW }).getByText('Current')).toBeVisible();
   await ana.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Home' }).click();
   await expectHome(ana, CREW);
+});
+
+// ---------- Accounts (A1-A5): Ko's email sign-up and sign-in ----------
+
+async function authScreen(browser) {
+  const context = await browser.newContext({ baseURL: BASE_URL, viewport: PHONE });
+  const page = await context.newPage();
+  people[`auth-${Object.keys(people).length}`] = { context, page };
+  await page.goto('/');
+  await expect(page.getByRole('tab', { name: 'Sign in' })).toBeVisible();
+  return page;
+}
+
+test('A1 Sign-up needs a name', async ({ browser }) => {
+  const page = await authScreen(browser);
+  await page.getByRole('tab', { name: 'Create account' }).click();
+  await page.getByLabel('Email').fill(emailFor('noname'));
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).last().click();
+  await expect(page.getByText('Add your name so friends know who you are.')).toBeVisible();
+});
+
+test('A2 Short password is refused', async ({ browser }) => {
+  const page = await authScreen(browser);
+  await page.getByRole('tab', { name: 'Create account' }).click();
+  await page.getByLabel('Your name').fill('Eve');
+  await page.getByLabel('Email').fill(emailFor('eve'));
+  await page.getByLabel('Password').fill('123');
+  await page.getByRole('button', { name: 'Create account' }).last().click();
+  await expect(page.getByText('Password must be at least 6 characters.')).toBeVisible();
+});
+
+test('A3 Same email twice', async ({ browser }) => {
+  const page = await authScreen(browser);
+  await page.getByRole('tab', { name: 'Create account' }).click();
+  await page.getByLabel('Your name').fill('Ana again');
+  await page.getByLabel('Email').fill(emailFor('Ana'));
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).last().click();
+  await expect(page.getByText('An account with this email already exists. Please sign in.')).toBeVisible();
+});
+
+test('A4 Wrong password', async ({ browser }) => {
+  const page = await authScreen(browser);
+  await page.getByLabel('Email').fill(emailFor('Ana'));
+  await page.getByLabel('Password').fill('not-the-password');
+  await page.getByRole('button', { name: 'Sign in' }).last().click();
+  await expect(page.getByText('Incorrect email or password.')).toBeVisible();
+});
+
+test('A5 Sign out, then sign in on a new device gets your clubs back', async ({ browser }) => {
+  const { page: ana } = people.Ana;
+  await ana.goto('/');
+  await openClubs(ana);
+  await ana.getByRole('button', { name: 'Sign out' }).click();
+  await expect(ana.getByRole('tab', { name: 'Sign in' })).toBeVisible();
+
+  const phone = await authScreen(browser); // a different browser = a new device
+  await phone.getByLabel('Email').fill(emailFor('Ana'));
+  await phone.getByLabel('Password').fill(PASSWORD);
+  await phone.getByRole('button', { name: 'Sign in' }).last().click();
+  await expect(phone.getByText("Today's glow")).toBeVisible();
+  await openClubs(phone);
+  await expect(myClubs(phone).getByText(CREW, { exact: true })).toBeVisible();
+  await expect(myClubs(phone).getByText(FLOOR, { exact: true })).toBeVisible();
 });

@@ -1,6 +1,6 @@
 rules_version = '2';
 // Paste into Firebase console > Firestore > Rules, then Publish.
-
+// Owner: Ko. Publish these in the console whenever this file changes.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
@@ -8,14 +8,16 @@ service cloud.firestore {
       return /databases/$(database)/documents/groups/$(gid)/members/$(request.auth.uid);
     }
     function isMember(gid) { return signedIn() && exists(memberPath(gid)); }
+    // True when the person is a member once this write (or batch) finishes.
+    function isMemberAfter(gid) { return signedIn() && existsAfter(memberPath(gid)); }
 
     // invite code -> group id. Readable one code at a time, never listable.
     match /invites/{code} {
       allow get: if signedIn();
-      allow create: if signedIn();
+      allow create: if isMemberAfter(request.resource.data.groupId);
     }
 
-    // User profile and club memberships per authenticated user.
+    // Your own profile: name, email and the clubs you belong to (restores them on sign-in).
     match /users/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
@@ -23,25 +25,24 @@ service cloud.firestore {
     match /groups/{gid} {
       // The group doc is the mascot (name, level, outfit): shown in the Showcase.
       allow read: if signedIn();
-      allow create: if signedIn();
-      allow update: if isMember(gid);
+      allow create, update: if isMemberAfter(gid);
 
       match /members/{uid} {
         allow read: if isMember(gid);
-        // You can only add or update your own membership record.
-        allow create, update: if signedIn() && request.auth.uid == uid;
+        // You can only add yourself, and only with the club's invite code.
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.inviteCode
+             == getAfter(/databases/$(database)/documents/groups/$(gid)/meta/invite).data.code;
+        allow update: if signedIn() && request.auth.uid == uid;
       }
-
       match /meta/{docId} {
         allow read: if isMember(gid);
-        allow create: if signedIn();
+        allow create: if isMemberAfter(gid);
       }
-
       match /workouts/{wid} {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.uid == request.auth.uid;
       }
-
       match /broadcasts/{bid} {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.uid == request.auth.uid;

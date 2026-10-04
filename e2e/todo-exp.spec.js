@@ -15,6 +15,7 @@ const ALL = [...FOUR, 'Slept 7+ hours', 'Ate a veggie-packed meal', '5 minutes o
 const contexts = [];
 const pages = {};
 let teamCode = '';
+const RUN = Date.now().toString(36);
 
 const nav = (page) => page.getByRole('navigation', { name: 'Main' });
 const levelPill = (page) => page.locator('.pill-link').first();
@@ -25,7 +26,13 @@ async function person(browser, name) {
   contexts.push(context);
   const page = await context.newPage();
   await page.goto('/');
+  // Sign up first (throwaway e2e account), which lands on the join screen.
+  await page.getByRole('tab', { name: 'Create account' }).click();
   await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Email').fill(`e2e-todo-${name.toLowerCase()}-${RUN}@fitkin.test`);
+  await page.getByLabel('Password').fill('fitkin-e2e-pass');
+  await page.getByRole('button', { name: 'Create account' }).last().click();
+  await expect(page.getByLabel('Invite code')).toBeVisible();
   pages[name] = page;
   return page;
 }
@@ -34,6 +41,7 @@ async function startClub(page, club) {
   await page.getByRole('tab', { name: 'Start a club' }).click();
   await page.getByLabel('Club name').fill(club);
   await page.getByRole('button', { name: 'Start club' }).click();
+  await page.getByRole('button', { name: /Start our club/ }).click(); // "Club created!" card
   await expect(page.getByRole('link', { name: club, exact: true })).toBeVisible();
 }
 
