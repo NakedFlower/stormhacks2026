@@ -7,7 +7,7 @@ export const ITEMS = [
   // Common: 15-40 coins per member
   { id: 'cap', name: 'Club cap', tier: 'common', pricePerMember: 30, unlockLevel: 2, slot: 'head' },
   // Rare: 100-300 coins per member
-  { id: 'bow', name: 'Big bow', tier: 'rare', pricePerMember: 150, unlockLevel: 6, slot: 'head' },
+  { id: 'bow', name: 'Big bow', tier: 'rare', pricePerMember: 150, unlockLevel: 3, slot: 'head' },
   // Legendary: never sold, unlocked by a challenge
   { id: 'crown', name: 'Club crown', tier: 'legendary', challenge: 'goals10', slot: 'head' },
 ];

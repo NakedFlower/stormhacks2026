@@ -103,9 +103,11 @@ export function createDemoBackend() {
     async doWellness(gid, taskId) {
       const r = applyWellness(me(gid), taskId, new Date());
       data.members[gid][uid] = { ...r.member, id: uid };
-      group(gid).coins += r.coins;
+      const g = group(gid);
+      g.coins += r.coins;
+      if (r.exp) g.exp += r.exp;
       save();
-      return delay({ coins: r.coins });
+      return delay({ coins: r.coins, exp: r.exp });
     },
 
     async claimDailyGoal(gid, members) {

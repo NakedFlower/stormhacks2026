@@ -116,7 +116,7 @@ test('wellness: coins for the first 3 per day, no repeats', () => {
     total += r.coins;
     m = r.member;
   }
-  assert.equal(total, 15);
+  assert.equal(total, 35);
   assert.throws(() => applyWellness(m, 'water', now));
 });
 
@@ -150,7 +150,7 @@ test('shop: level gate, coins gate, legendary never sold', () => {
   assert.equal(cannotBuy(itemById('cap'), group, 2, 1), null);
   assert.equal(priceFor(itemById('cap'), 4), 120);
   assert.match(cannotBuy(itemById('cap'), group, 2, 4), /coins/);
-  assert.match(cannotBuy(itemById('bow'), { coins: 9999, owned: [] }, 5, 1), /Lv 6/);
+  assert.match(cannotBuy(itemById('bow'), { coins: 9999, owned: [] }, 2, 1), /Lv 3/);
   assert.equal(cannotBuy(itemById('cap'), { coins: 100, owned: ['cap'] }, 2, 1), 'Already owned.');
   assert.equal(cannotBuy(itemById('crown'), { coins: 9999 }, 99, 1), 'Not for sale.');
 });

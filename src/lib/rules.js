@@ -29,10 +29,20 @@ export const ACTIVITIES = [
 ];
 
 export const WELLNESS_TASKS = [
-  { id: 'water', label: 'Drink 2L water' },
-  { id: 'stretch', label: 'Stretch 5 minutes' },
-  { id: 'outside', label: '10 minutes outside' },
-  { id: 'sleep', label: 'Slept 7+ hours' },
+  { id: 'water', label: 'Drink 2L water', coins: 10 },
+  { id: 'stretch', label: 'Stretch 5 minutes', coins: 10 },
+  { id: 'outside', label: '10 minutes outside', coins: 15 },
+  { id: 'sleep', label: 'Slept 7+ hours', coins: 15 },
+  { id: 'meditate', label: 'Meditate 10 minutes', exp: 10, coins: 20 },
+  { id: 'steps', label: 'Hit 8,000 steps', exp: 12, coins: 25 },
+  { id: 'veggies', label: 'Eat veggies every meal', exp: 8, coins: 15 },
+  { id: 'no_screens', label: 'No screens 1 hr before bed', exp: 6, coins: 15 },
+  { id: 'journal', label: 'Journal for 5 minutes', exp: 6, coins: 15 },
+  { id: 'cold_shower', label: 'Cold shower 30 seconds', exp: 8, coins: 20 },
+  { id: 'read', label: 'Read for 20 minutes', exp: 8, coins: 15 },
+  { id: 'vitamins', label: 'Take your vitamins', exp: 5, coins: 10 },
+  { id: 'meal_prep', label: 'Prep a healthy meal', exp: 10, coins: 20 },
+  { id: 'gratitude', label: 'List 3 things you\'re grateful for', exp: 6, coins: 15 },
 ];
 
 export const MOODS = ['great', 'okay', 'tired'];
@@ -172,11 +182,13 @@ export function applyWorkout(member, input, now = new Date(), { buddy = false } 
 }
 
 export function applyWellness(member, taskId, now = new Date()) {
-  if (!WELLNESS_TASKS.some((t) => t.id === taskId)) throw new Error('Unknown task.');
+  const task = WELLNESS_TASKS.find((t) => t.id === taskId);
+  if (!task) throw new Error('Unknown task.');
   const m = freshMember(member, now);
   if (m.wellnessDone.includes(taskId)) throw new Error('Already done today.');
-  const coins = m.wellnessDone.length < WELLNESS_MAX_PER_DAY ? WELLNESS_COINS : 0;
-  return { coins, member: { ...m, wellnessDone: [...m.wellnessDone, taskId] } };
+  const coins = m.wellnessDone.length < WELLNESS_MAX_PER_DAY ? (task.coins ?? WELLNESS_COINS) : 0;
+  const exp = task.exp ?? 0;
+  return { coins, exp, member: { ...m, wellnessDone: [...m.wellnessDone, taskId] } };
 }
 
 // ---------- group goals ----------
