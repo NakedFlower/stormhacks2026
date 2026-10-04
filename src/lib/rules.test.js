@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   activityExp, applyWorkout, applyWellness, dailyGoal, levelInfo, expToNext,
   freshMember, dayKey, weekKey, makeInviteCode, hasBuddy, DAILY_EXP_CAP,
-  WELLNESS_TASKS, WELLNESS_EXP,
+  WELLNESS_TASKS, WELLNESS_EXP, undoWellness, clubLevel, clubGrowth, addGrowth,
 } from './rules.js';
 import { ITEMS, cannotBuy, equipList, priceFor, itemById } from './items.js';
 import { ITEM_MODELS } from '../three/itemModels.js';
@@ -203,4 +203,41 @@ test('every shop item has a 3D model', () => {
 test('invite codes are 6 unambiguous characters', () => {
   const code = makeInviteCode();
   assert.match(code, /^[A-HJ-NP-Z2-9]{6}$/);
+});
+
+test('untick gives back exactly what that tick earned (F3, F4)', () => {
+  let m = {};
+  const ticks = ['water', 'stretch', 'outside', 'stairs']; // 4th pays EXP but no coins
+  let coins = 0;
+  for (const id of ticks) { const r = applyWellness(m, id, now); coins += r.coins; m = r.member; }
+  assert.equal(coins, 35);
+  assert.equal(m.todayExp, 20);
+  // Untick the unpaid 4th: coins stay, its 5 EXP comes back off.
+  let u = undoWellness(m, 'stairs', now);
+  assert.deepEqual([u.coins, u.exp], [0, -5]);
+  m = u.member;
+  assert.equal(m.todayExp, 15);
+  assert.ok(!m.wellnessDone.includes('stairs'));
+  // Untick a paid one: its 10 coins come back off.
+  u = undoWellness(m, 'water', now);
+  assert.deepEqual([u.coins, u.exp], [-10, -5]);
+  m = u.member;
+  // Re-tick: pays again (only 2 paid ticks are left), never twice at once.
+  const again = applyWellness(m, 'water', now);
+  assert.equal(again.coins, 10);
+  assert.throws(() => undoWellness(again.member, 'sleep', now), /Not ticked/);
+});
+
+test('a friend joining never lowers the level (LV4)', () => {
+  // Solo club earns 20 EXP: Lv 2.
+  let g = { exp: 0, growth: 0, memberCount: 1 };
+  g = { ...g, growth: addGrowth(g, 20), exp: 20 };
+  assert.equal(clubLevel(g).level, 2);
+  // A friend joins: growth is pinned, the club gets bigger, the level stays.
+  g = { ...g, growth: clubGrowth(g), memberCount: 2 };
+  assert.equal(clubLevel(g).level, 2);
+  // EXP now counts at the new size: 2 members need twice the EXP per level.
+  assert.equal(clubLevel(g).need, expToNext(2, 2));
+  // Old clubs with no growth field fall back to exp / members.
+  assert.equal(clubLevel({ exp: 80, memberCount: 4 }).level, 2);
 });

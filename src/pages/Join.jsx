@@ -73,7 +73,7 @@ export default function Join({ canGoBack = false }) {
     <>
       <form className="screen" onSubmit={submit} style={{ justifyContent: 'center' }}>
         <div className="center stack" style={{ alignItems: 'center' }}>
-          <div className="blob" style={{ width: 96, height: 96 }} />
+          <img src="/logo.png" alt="Fitkin" width="112" height="112" />
           <h1 className="title" style={{ fontSize: 34 }}>Fitkin</h1>
           <p className="muted" style={{ margin: 0 }}>
             Raise a little guy together.<br />Move with friends, no pressure.
@@ -169,7 +169,7 @@ export default function Join({ canGoBack = false }) {
       {createdClub && (
         <div className="modal-backdrop">
           <div className="modal-card stack" style={{ gap: 16 }}>
-            <div className="blob" style={{ width: 72, height: 72, margin: '0 auto' }} />
+            <img src="/logo.png" alt="" width="88" height="88" style={{ margin: '0 auto' }} />
             <div>
               <h2 className="title" style={{ fontSize: 22, margin: '0 0 6px' }}>🎉 Club created!</h2>
               <p className="muted small" style={{ margin: 0 }}>

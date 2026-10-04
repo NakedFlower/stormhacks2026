@@ -71,7 +71,7 @@ export default function Auth() {
   return (
     <div className="screen" style={{ justifyContent: 'center' }}>
       <div className="center stack" style={{ alignItems: 'center' }}>
-        <div className="blob" style={{ width: 96, height: 96 }} />
+        <img src="/logo.png" alt="Fitkin" width="112" height="112" />
         <h1 className="title" style={{ fontSize: 34 }}>Fitkin</h1>
         <p className="muted" style={{ margin: 0 }}>
           Raise a little guy together.<br />Move with friends, no pressure.

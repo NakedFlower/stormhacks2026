@@ -16,7 +16,7 @@ import {
   getFirestore, doc, collection, getDoc, getDocs, setDoc, where, onSnapshot, query, orderBy, limit,
   runTransaction, writeBatch, increment, arrayUnion, addDoc, updateDoc,
 } from 'firebase/firestore';
-import { applyWorkout, applyWellness, hasBuddy, dailyGoal, levelInfo, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
+import { applyWorkout, applyWellness, undoWellness, hasBuddy, dailyGoal, clubLevel, clubGrowth, addGrowth, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
 import { itemById, cannotBuy, priceFor, equipList, challengeProgress } from '../items.js';
 
 export function createFirebaseBackend(config) {
@@ -115,7 +115,7 @@ export function createFirebaseBackend(config) {
       const now = Date.now();
       const batch = writeBatch(db);
       batch.set(gRef, {
-        name, exp: 0, coins: 0, owned: [], equipped: [], memberCount: 1,
+        name, exp: 0, growth: 0, coins: 0, owned: [], equipped: [], memberCount: 1,
         goalsCompleted: 0, goalPaidDate: null, achievements: [], lastActiveAt: now, createdAt: now,
       });
       batch.set(doc(gRef, 'meta', 'invite'), { code });
@@ -147,7 +147,8 @@ export function createFirebaseBackend(config) {
       }
       const batch = writeBatch(db);
       batch.set(doc(db, 'groups', groupId, 'members', myUid), { displayName, joinedAt: Date.now(), inviteCode: clean });
-      batch.update(groupRef(groupId), { memberCount: increment(1) });
+      // Pin growth before the club gets bigger, so a new member never lowers the level.
+      batch.update(groupRef(groupId), { memberCount: increment(1), growth: clubGrowth(group.data()) });
       await batch.commit();
 
       setDoc(doc(db, 'users', myUid), { clubs: arrayUnion({ id: groupId, name: group.data().name }), name: displayName }, { merge: true }).catch(() => {});
@@ -184,10 +185,11 @@ export function createFirebaseBackend(config) {
       return runTransaction(db, async (tx) => {
         const mSnap = await tx.get(memberRef(gid));
         if (!mSnap.exists()) throw new Error('You are not in this club.');
+        const g = (await tx.get(groupRef(gid))).data();
         const me = mSnap.data();
         const r = applyWorkout(me, input, now, { buddy });
         tx.set(memberRef(gid), r.member, { merge: true });
-        tx.update(groupRef(gid), { exp: increment(r.exp), coins: increment(r.coins), lastActiveAt: Date.now() });
+        tx.update(groupRef(gid), { exp: increment(r.exp), growth: addGrowth(g, r.exp), coins: increment(r.coins), lastActiveAt: Date.now() });
         tx.set(doc(collection(db, 'groups', gid, 'workouts')), { ...r.workout, uid, name: me.displayName });
         return { exp: r.exp, coins: r.coins, capped: r.capped, buddy: r.buddy, variety: r.variety };
       });
@@ -196,11 +198,40 @@ export function createFirebaseBackend(config) {
     async doWellness(gid, taskId) {
       return runTransaction(db, async (tx) => {
         const mSnap = await tx.get(memberRef(gid));
+        const g = (await tx.get(groupRef(gid))).data();
         const r = applyWellness(mSnap.data(), taskId, new Date());
         tx.set(memberRef(gid), r.member, { merge: true });
-        if (r.coins || r.exp) tx.update(groupRef(gid), { coins: increment(r.coins), exp: increment(r.exp) });
+        tx.update(groupRef(gid), {
+          coins: increment(r.coins), exp: increment(r.exp), growth: addGrowth(g, r.exp), lastActiveAt: Date.now(),
+        });
         return { coins: r.coins, exp: r.exp, capped: r.capped };
       });
+    },
+
+    async undoWellness(gid, taskId) {
+      return runTransaction(db, async (tx) => {
+        const mSnap = await tx.get(memberRef(gid));
+        const g = (await tx.get(groupRef(gid))).data();
+        const r = undoWellness(mSnap.data(), taskId, new Date());
+        const coins = -Math.min(-r.coins, g.coins ?? 0); // never below an empty pot
+        const exp = -Math.min(-r.exp, g.exp ?? 0);
+        tx.set(memberRef(gid), r.member);
+        tx.update(groupRef(gid), { coins: increment(coins), exp: increment(exp), growth: addGrowth(g, exp) });
+        return { coins, exp };
+      });
+    },
+
+    async cheer(gid, toUid) {
+      const mine = await getDoc(memberRef(gid));
+      await addDoc(collection(db, 'groups', gid, 'cheers'), {
+        from: currentUid(), fromName: mine.data()?.displayName ?? 'A friend', to: toUid, createdAt: Date.now(),
+      });
+    },
+
+    // Cheers sent to me. Filtered by recipient only, so no extra Firestore index is needed.
+    watchCheers(gid, cb) {
+      const q = query(collection(db, 'groups', gid, 'cheers'), where('to', '==', currentUid()));
+      return onSnapshot(q, (s) => cb(s.docs.map(withId)), () => cb([]));
     },
 
     async claimDailyGoal(gid, members) {
@@ -221,7 +252,7 @@ export function createFirebaseBackend(config) {
       return runTransaction(db, async (tx) => {
         const g = (await tx.get(groupRef(gid))).data();
         const item = itemById(itemId);
-        const { level } = levelInfo(g.exp, g.memberCount);
+        const { level } = clubLevel(g);
         const why = cannotBuy(item, g, level, g.memberCount);
         if (why) throw new Error(why);
         tx.update(groupRef(gid), {

@@ -3,7 +3,7 @@
 import { Link } from 'react-router-dom';
 import { useClub } from '../components/ClubContext.jsx';
 import { useSession, setSession, useShowcase, useAuth } from '../lib/db.js';
-import { weeklyGoal, levelInfo } from '../lib/rules.js';
+import { weeklyGoal, clubLevel } from '../lib/rules.js';
 import { ITEMS } from '../lib/items.js';
 
 function lastSeen(ms) {
@@ -72,11 +72,11 @@ export default function Clubs() {
       <div className="between"><p className="label">Showcase</p><span className="muted small">no rankings, just vibes</span></div>
       <div className="grid2">
         {showcase.map((c) => {
-          const { stage } = levelInfo(c.exp, c.memberCount);
+          const { stage } = clubLevel(c);
           const outfit = (c.equipped ?? []).map((id) => ITEMS.find((i) => i.id === id)?.name.toLowerCase()).filter(Boolean);
           return (
             <div key={c.id} className="card stack" style={{ gap: 4 }}>
-              <div className="thumb" style={{ height: 96 }}><div className="blob" style={{ margin: 0, transform: `scale(${0.7 + ['baby', 'kid', 'teen', 'adult'].indexOf(stage.id) * 0.12})` }} /></div>
+              <div className="thumb" style={{ height: 96 }}><img src="/logo.png" alt="" width="80" height="80" style={{ transform: `scale(${0.7 + ['baby', 'kid', 'teen', 'adult'].indexOf(stage.id) * 0.12})` }} /></div>
               <strong style={{ fontSize: 15 }}>{c.name}{c.id === gid ? ' (us)' : ''}</strong>
               <span className="muted small">{stage.name}{outfit.length ? ` · ${outfit.join(', ')}` : ''}</span>
               <span className="small" style={{ fontWeight: 800, color: Date.now() - c.lastActiveAt < 900000 ? 'var(--pink)' : 'var(--muted)' }}>{lastSeen(c.lastActiveAt)}</span>

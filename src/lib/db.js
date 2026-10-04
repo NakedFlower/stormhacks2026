@@ -162,8 +162,10 @@ export const useMembers = (gid) => useWatch(api.watchMembers, gid ?? null, []);
 export const useWorkouts = (gid) => useWatch(api.watchWorkouts, gid ?? null, []);
 export const useBroadcasts = (gid) => useWatch(api.watchBroadcasts, gid ?? null, []);
 export const useInviteCode = (gid) => useWatch(api.watchInviteCode, gid ?? null, '');
+export const useCheers = (gid) => useWatch(api.watchCheers, gid ?? null, []);
 export function useShowcase() {
   const [value, setValue] = useState([]);
   useEffect(() => api.watchShowcase(setValue), []);
-  return value;
+  // Test clubs from the automated checks are named "E2E ..."; keep them out of the showcase.
+  return value.filter((c) => !/^E2E\b/.test(c.name ?? ''));
 }

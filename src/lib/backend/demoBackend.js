@@ -1,15 +1,18 @@
 // Demo backend: same interface as the Firebase one, but all data lives in this
 // browser's localStorage. Each browser TAB is a different person, so you can
 // test live sync with two tabs side by side and no Firebase project.
-import { applyWorkout, applyWellness, hasBuddy, dailyGoal, levelInfo, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
+import { applyWorkout, applyWellness, undoWellness, hasBuddy, dailyGoal, clubLevel, clubGrowth, addGrowth, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
 import { itemById, cannotBuy, priceFor, equipList, challengeProgress } from '../items.js';
 
 const KEY = 'fitkin-demo-db';
-const empty = () => ({ groups: {}, members: {}, workouts: {}, broadcasts: {}, invites: {} });
+const empty = () => ({ groups: {}, members: {}, workouts: {}, broadcasts: {}, invites: {}, cheers: {} });
 
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) ?? empty(); } catch { return empty(); }
 }
+
+// Demo accounts: one person per email, so signing back in finds your clubs.
+const demoUid = (email) => `demo-${email.trim().toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
 export function createDemoBackend() {
   let data = load();
@@ -64,7 +67,7 @@ export function createDemoBackend() {
     },
 
     async signUpWithEmail(email, password, displayName) {
-      uid = `demo-${Math.random().toString(36).slice(2, 10)}`;
+      uid = demoUid(email);
       currentUser = { uid, email, displayName: displayName || email.split('@')[0] };
       try { sessionStorage.setItem('fitkin-demo-user', JSON.stringify(currentUser)); } catch {}
       notifyAuth();
@@ -72,7 +75,7 @@ export function createDemoBackend() {
     },
 
     async signInWithEmail(email, password) {
-      uid = `demo-${Math.random().toString(36).slice(2, 10)}`;
+      uid = demoUid(email); // same email = same person, so your clubs come back
       currentUser = { uid, email, displayName: email.split('@')[0] };
       try { sessionStorage.setItem('fitkin-demo-user', JSON.stringify(currentUser)); } catch {}
       notifyAuth();
@@ -100,7 +103,7 @@ export function createDemoBackend() {
       const code = makeInviteCode();
       const now = Date.now();
       data.groups[gid] = {
-        id: gid, name, exp: 0, coins: 0, owned: [], equipped: [], memberCount: 1,
+        id: gid, name, exp: 0, growth: 0, coins: 0, owned: [], equipped: [], memberCount: 1,
         goalsCompleted: 0, goalPaidDate: null, achievements: [], lastActiveAt: now, createdAt: now, inviteCode: code,
       };
       data.members[gid] = { [uid]: { id: uid, displayName, joinedAt: now } };
@@ -115,7 +118,9 @@ export function createDemoBackend() {
       if (!gid) throw new Error('No club has that invite code.');
       if (!data.members[gid][uid]) {
         data.members[gid][uid] = { id: uid, displayName, joinedAt: Date.now() };
-        data.groups[gid].memberCount += 1;
+        const g = data.groups[gid];
+        g.growth = clubGrowth(g); // pin growth before the club gets bigger
+        g.memberCount += 1;
         save();
       }
       return delay({ groupId: gid, name: data.groups[gid].name, inviteCode: clean });
@@ -134,6 +139,7 @@ export function createDemoBackend() {
       const r = applyWorkout(m, input, now, { buddy: hasBuddy(data.broadcasts[gid], uid, now) });
       data.members[gid][uid] = { ...r.member, id: uid };
       const g = group(gid);
+      g.growth = addGrowth(g, r.exp);
       g.exp += r.exp;
       g.coins += r.coins;
       g.lastActiveAt = Date.now();
@@ -145,10 +151,36 @@ export function createDemoBackend() {
     async doWellness(gid, taskId) {
       const r = applyWellness(me(gid), taskId, new Date());
       data.members[gid][uid] = { ...r.member, id: uid };
-      group(gid).coins += r.coins;
-      group(gid).exp += r.exp;
+      const g = group(gid);
+      g.growth = addGrowth(g, r.exp);
+      g.coins += r.coins;
+      g.exp += r.exp;
+      g.lastActiveAt = Date.now();
       save();
       return delay({ coins: r.coins, exp: r.exp, capped: r.capped });
+    },
+
+    async undoWellness(gid, taskId) {
+      const r = undoWellness(me(gid), taskId, new Date());
+      data.members[gid][uid] = { ...r.member, id: uid };
+      const g = group(gid);
+      const coins = -Math.min(-r.coins, g.coins); // never below an empty pot
+      g.growth = addGrowth(g, r.exp);
+      g.coins += coins;
+      g.exp = Math.max(0, g.exp + r.exp);
+      save();
+      return delay({ coins, exp: r.exp });
+    },
+
+    async cheer(gid, toUid) {
+      const from = data.members[gid]?.[uid];
+      (data.cheers[gid] ??= []).push({ id: `c${Date.now()}`, from: uid, fromName: from?.displayName ?? 'A friend', to: toUid, createdAt: Date.now() });
+      save();
+      return delay();
+    },
+
+    watchCheers(gid, cb) {
+      return watch(() => (data.cheers?.[gid] ?? []).filter((c) => c.to === uid), cb);
     },
 
     async claimDailyGoal(gid, members) {
@@ -166,7 +198,7 @@ export function createDemoBackend() {
     async buy(gid, itemId) {
       const g = group(gid);
       const item = itemById(itemId);
-      const why = cannotBuy(item, g, levelInfo(g.exp, g.memberCount).level, g.memberCount);
+      const why = cannotBuy(item, g, clubLevel(g).level, g.memberCount);
       if (why) throw new Error(why);
       g.coins -= priceFor(item, g.memberCount);
       g.owned.push(itemId);

@@ -43,6 +43,11 @@ service cloud.firestore {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.uid == request.auth.uid;
       }
+      // Cheers: a member sends one to a friend in the same club; members can read them.
+      match /cheers/{cid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.from == request.auth.uid;
+      }
       match /broadcasts/{bid} {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.uid == request.auth.uid;

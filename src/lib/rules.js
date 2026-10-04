@@ -103,6 +103,35 @@ export function levelInfo(totalExp, memberCount) {
   return { level, into, need, progress: into / need, stage: stageFor(level) };
 }
 
+// A club's growth = EXP divided by the club's size at the moment it was earned.
+// Levels come from growth, so a friend joining raises the cost of the NEXT level
+// but never takes a level away. Clubs created before growth existed fall back to
+// exp / memberCount until their next EXP write sets it.
+export function clubGrowth(group) {
+  if (!group) return 0;
+  if (typeof group.growth === 'number') return group.growth;
+  return (group.exp ?? 0) / Math.max(1, group.memberCount ?? 1);
+}
+
+// Growth after adding (or, when negative, removing) EXP at today's club size.
+export function addGrowth(group, exp) {
+  return Math.max(0, clubGrowth(group) + exp / Math.max(1, group?.memberCount ?? 1));
+}
+
+// Level for the screens. EXP numbers are shown at today's club size, so
+// "into / need" reads in the same EXP the club earns.
+export function clubLevel(group) {
+  const size = Math.max(1, group?.memberCount ?? 1);
+  const base = levelInfo(clubGrowth(group), 1);
+  return {
+    level: base.level,
+    stage: base.stage,
+    progress: base.progress,
+    into: Math.round(base.into * size),
+    need: Math.round(base.need * size),
+  };
+}
+
 // ---------- member day/week bookkeeping ----------
 
 export function freshMember(member, now = new Date()) {
@@ -114,6 +143,7 @@ export function freshMember(member, now = new Date()) {
     m.todayExp = 0;
     m.todayMinutes = 0;
     m.wellnessDone = [];
+    m.wellnessPaid = {};
   }
   if (m.weekStart !== week) {
     m.weekStart = week;
@@ -123,6 +153,7 @@ export function freshMember(member, now = new Date()) {
   m.todayExp ??= 0;
   m.todayMinutes ??= 0;
   m.wellnessDone ??= [];
+  m.wellnessPaid ??= {};
   m.weekMinutes ??= 0;
   m.weekTypes ??= [];
   return m;
@@ -197,7 +228,31 @@ export function applyWellness(member, taskId, now = new Date()) {
     coins,
     exp,
     capped: exp < full,
-    member: { ...m, wellnessDone: [...m.wellnessDone, taskId], todayExp: m.todayExp + exp },
+    member: {
+      ...m,
+      wellnessDone: [...m.wellnessDone, taskId],
+      wellnessPaid: { ...m.wellnessPaid, [taskId]: { coins, exp } },
+      todayExp: m.todayExp + exp,
+    },
+  };
+}
+
+// Untick a to-do done today: gives back exactly what that tick earned.
+// Returns negative coins and exp for the backend to apply to the club.
+export function undoWellness(member, taskId, now = new Date()) {
+  const m = freshMember(member, now);
+  if (!m.wellnessDone.includes(taskId)) throw new Error('Not ticked today.');
+  const paid = m.wellnessPaid[taskId] ?? { coins: 0, exp: 0 };
+  const { [taskId]: _gone, ...restPaid } = m.wellnessPaid;
+  return {
+    coins: 0 - paid.coins, // 0 - x, so nothing paid gives 0 rather than -0
+    exp: 0 - paid.exp,
+    member: {
+      ...m,
+      wellnessDone: m.wellnessDone.filter((id) => id !== taskId),
+      wellnessPaid: restPaid,
+      todayExp: Math.max(0, m.todayExp - paid.exp),
+    },
   };
 }
 

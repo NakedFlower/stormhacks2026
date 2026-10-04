@@ -17,6 +17,7 @@ function Phone({ children }) {
   return (
     <div className="stage">
       <aside className="desk-note">
+        <img src="/logo.png" alt="" width="120" height="120" />
         <h1>Fitkin</h1>
         <p>Raise a little guy together. Fitkin is made for phones; this is the phone view on a bigger screen.</p>
         <p>{api.mode === 'demo' ? 'Demo mode: open a second tab to join as a second friend and watch both screens sync.' : 'Scan or open this link on your phone to join.'}</p>
@@ -32,7 +33,16 @@ export default function App() {
   const [logOpen, setLogOpen] = useState(false);
 
   if (error) return <Phone><div className="screen center"><p className="error">Couldn't sign in: {error.message}</p></div></Phone>;
-  if (loading) return <Phone><div className="screen center muted">Waking up…</div></Phone>;
+  if (loading) {
+    return (
+      <Phone>
+        <div className="screen center muted" style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <img src="/logo.png" alt="Fitkin" width="140" height="140" className="logo-wake" />
+          Waking up…
+        </div>
+      </Phone>
+    );
+  }
 
   if (!user) {
     return (
