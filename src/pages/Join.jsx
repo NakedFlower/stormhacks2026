@@ -1,18 +1,18 @@
 // Screen for starting a club or joining one with an invite code.
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, rememberClub, useSession, useAuth } from '../lib/db.js';
+import { api, rememberClub, useSession, useAuth, pendingName } from '../lib/db.js';
 
 export default function Join({ canGoBack = false }) {
   const session = useSession();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const defaultName = session.name || user?.displayName || (user?.email ? user.email.split('@')[0] : '');
+  const defaultName = session.name || pendingName() || user?.displayName || (user?.email ? user.email.split('@')[0] : '');
   const [name, setName] = useState(defaultName);
   const [nameEdited, setNameEdited] = useState(false);
   // Right after sign-up the profile name arrives late; use it unless the person typed their own.
-  const knownName = session.name || user?.displayName;
+  const knownName = session.name || pendingName() || user?.displayName;
   useEffect(() => {
     if (knownName && !nameEdited) setName(knownName);
   }, [knownName, nameEdited]);

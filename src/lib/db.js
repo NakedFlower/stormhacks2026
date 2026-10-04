@@ -36,6 +36,17 @@ export function setSession(patch) {
   sessionListeners.forEach((l) => l());
 }
 
+// The name typed at sign-up, saved BEFORE the account exists. Firebase shows the
+// join screen the moment the account is created, a beat before the profile name is
+// saved, so Join reads this instead of falling back to the email.
+const PENDING_NAME = 'fitkin-signup-name';
+export function setPendingName(name) {
+  try { sessionStorage.setItem(PENDING_NAME, name); } catch { /* private mode */ }
+}
+export function pendingName() {
+  try { return sessionStorage.getItem(PENDING_NAME) ?? ''; } catch { return ''; }
+}
+
 export function rememberClub({ groupId, name }, displayName) {
   const clubs = [...session.clubs.filter((c) => c.id !== groupId), { id: groupId, name }];
   setSession({ current: groupId, clubs, name: displayName ?? session.name });
@@ -109,6 +120,7 @@ export function useAuth() {
     setError(null);
     try {
       await api.signOut();
+      setPendingName('');
       session = { current: null, clubs: [], name: '' };
       sessionListeners.forEach((l) => l());
     } catch (err) {
@@ -130,6 +142,7 @@ export function useAuth() {
 
 export async function logout() {
   await api.signOut();
+  setPendingName('');
   session = { current: null, clubs: [], name: '' };
   sessionListeners.forEach((l) => l());
 }

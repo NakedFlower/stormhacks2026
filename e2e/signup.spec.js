@@ -29,6 +29,7 @@ async function newPerson(browser, name) {
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).last().click();
   await expect(page.getByLabel('Invite code')).toBeVisible();
+  await expect(page.getByLabel('Your name')).toHaveValue(name); // sign-up name, not the email
   people[name] = { context, page };
   return page;
 }
@@ -103,6 +104,8 @@ test('S3 Join with code', async ({ browser }) => {
   await joinClub(ben, 'Ben', inviteCode);
   await expectHome(ben, CREW);
   await expect(ben.getByRole('button', { name: 'Cheer Ana' })).toBeVisible();
+  // Ana sees Ben by his real name, not his email.
+  await expect(people.Ana.page.getByRole('button', { name: 'Cheer Ben' })).toBeVisible();
   await expect(ben.getByRole('button', { name: 'Cheer Ben' })).toBeVisible();
 });
 

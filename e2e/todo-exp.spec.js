@@ -33,6 +33,7 @@ async function person(browser, name) {
   await page.getByLabel('Password').fill('fitkin-e2e-pass');
   await page.getByRole('button', { name: 'Create account' }).last().click();
   await expect(page.getByLabel('Invite code')).toBeVisible();
+  await expect(page.getByLabel('Your name')).toHaveValue(name); // sign-up name, not the email
   pages[name] = page;
   return page;
 }

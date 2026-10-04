@@ -24,6 +24,8 @@ export async function person(browser, name, contexts) {
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).last().click();
   await expect(page.getByLabel('Invite code')).toBeVisible();
+  // The join screen must greet you by your sign-up name, never your email.
+  await expect(page.getByLabel('Your name')).toHaveValue(name);
   return page;
 }
 
