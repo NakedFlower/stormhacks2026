@@ -7,6 +7,7 @@ import { ITEMS, priceFor, cannotBuy, challengeProgress } from '../lib/items.js';
 import { CoinIcon } from '../components/Icons.jsx';
 
 const TIERS = ['common', 'rare', 'legendary'];
+const HAT_IDS = ['cap', 'bow', 'crown'];
 
 export default function Shop() {
   const { gid, group, info, memberCount, toast } = useClub();
@@ -43,12 +44,12 @@ export default function Shop() {
       </div>
 
       <div className="grid2">
-        {ITEMS.filter((i) => i.tier === tier).map((item) => {
+        {ITEMS.filter((i) => i.tier === tier && HAT_IDS.includes(i.id)).map((item) => {
           const isOwned = owned.includes(item.id);
           const isOn = equipped.includes(item.id);
           const legendary = item.tier === 'legendary';
-          const unlocked = legendary ? challengeProgress(group, item.challenge).done : isOwned;
-          const why = legendary ? null : cannotBuy(item, group, info.level, memberCount);
+          const unlocked = true;
+          const why = null;
           return (
             <div key={item.id} className="card stack" style={{ gap: 8 }}>
               <div className={`thumb ${item.tier}`}>{item.name}</div>
