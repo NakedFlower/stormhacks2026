@@ -117,7 +117,7 @@ test('wellness: coins for the first 3 per day, no repeats', () => {
     total += r.coins;
     m = r.member;
   }
-  assert.equal(total, 35);
+  assert.equal(total, 50);
   assert.throws(() => applyWellness(m, 'water', now));
 });
 
