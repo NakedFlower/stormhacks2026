@@ -2,9 +2,18 @@
 // Every write that touches EXP or coins runs in a transaction, so two phones
 // logging at the same moment can't overwrite each other.
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import {
-  getFirestore, doc, collection, getDoc, getDocs, where, onSnapshot, query, orderBy, limit,
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut as fbSignOut,
+} from 'firebase/auth';
+import {
+  getFirestore, doc, collection, getDoc, getDocs, setDoc, where, onSnapshot, query, orderBy, limit,
   runTransaction, writeBatch, increment, arrayUnion, addDoc, updateDoc,
 } from 'firebase/firestore';
 import { applyWorkout, applyWellness, hasBuddy, dailyGoal, levelInfo, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
@@ -15,25 +24,92 @@ export function createFirebaseBackend(config) {
   const auth = getAuth(app);
   const db = getFirestore(app);
   let uid = null;
+  let currentUser = null;
+  const authListeners = new Set();
+  const notifyAuth = () => authListeners.forEach((l) => l(currentUser));
 
-  const ready = new Promise((resolve, reject) => {
-    const stop = onAuthStateChanged(auth, (user) => {
-      if (user) { uid = user.uid; stop(); resolve(uid); }
-    });
-    signInAnonymously(auth).catch(reject);
+  let initialAuthResolved = false;
+  let resolveReady;
+  const ready = new Promise((resolve) => {
+    resolveReady = resolve;
   });
 
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    uid = user ? user.uid : null;
+    if (!initialAuthResolved) {
+      initialAuthResolved = true;
+      resolveReady(uid);
+    }
+    notifyAuth();
+  });
+
+  const currentUid = () => auth.currentUser?.uid || uid;
   const groupRef = (gid) => doc(db, 'groups', gid);
-  const memberRef = (gid, id = uid) => doc(db, 'groups', gid, 'members', id);
+  const memberRef = (gid, id = currentUid()) => doc(db, 'groups', gid, 'members', id);
+  const userRef = (id = currentUid()) => doc(db, 'users', id);
   const withId = (snap) => ({ id: snap.id, ...snap.data() });
 
   return {
     mode: 'firebase',
     ready: () => ready,
-    uid: () => uid,
+    uid: () => currentUid(),
+    currentUser: () => currentUser,
+
+    onAuthChange(cb) {
+      authListeners.add(cb);
+      if (initialAuthResolved) cb(currentUser);
+      return () => authListeners.delete(cb);
+    },
+
+    async signUpWithEmail(email, password, displayName) {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (displayName) {
+        await updateProfile(cred.user, { displayName });
+      }
+      currentUser = auth.currentUser;
+      uid = currentUser.uid;
+      await setDoc(userRef(uid), { displayName: displayName || email.split('@')[0], email, clubs: [] }, { merge: true }).catch(() => {});
+      return currentUser;
+    },
+
+    async signInWithEmail(email, password) {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      currentUser = cred.user;
+      uid = currentUser.uid;
+      return currentUser;
+    },
+
+    async signInWithGoogle() {
+      const provider = new GoogleAuthProvider();
+      const cred = await signInWithPopup(auth, provider);
+      currentUser = cred.user;
+      uid = currentUser.uid;
+      await setDoc(userRef(uid), { displayName: currentUser.displayName || currentUser.email.split('@')[0], email: currentUser.email }, { merge: true }).catch(() => {});
+      return currentUser;
+    },
+
+    async signOut() {
+      await fbSignOut(auth);
+      currentUser = null;
+      uid = null;
+      notifyAuth();
+    },
+
+    async getUserClubs(userId = currentUid()) {
+      if (!userId) return [];
+      try {
+        const snap = await getDoc(userRef(userId));
+        return snap.exists() ? snap.data().clubs ?? [] : [];
+      } catch {
+        return [];
+      }
+    },
 
     async createClub(name, displayName) {
       await ready;
+      const myUid = currentUid();
+      if (!myUid) throw new Error('You must be signed in to create a club.');
       const code = makeInviteCode();
       const gRef = doc(collection(db, 'groups'));
       const now = Date.now();
@@ -44,25 +120,38 @@ export function createFirebaseBackend(config) {
       });
       batch.set(doc(gRef, 'meta', 'invite'), { code });
       batch.set(doc(db, 'invites', code), { groupId: gRef.id });
-      batch.set(memberRef(gRef.id), { displayName, joinedAt: now, inviteCode: code });
+      batch.set(doc(db, 'groups', gRef.id, 'members', myUid), { displayName, joinedAt: now, inviteCode: code });
       await batch.commit();
-      return { groupId: gRef.id, name };
+
+      setDoc(doc(db, 'users', myUid), {
+        clubs: arrayUnion({ id: gRef.id, name }),
+        name: displayName,
+      }, { merge: true }).catch(() => {});
+
+      return { groupId: gRef.id, name, inviteCode: code };
     },
 
     async joinClub(code, displayName) {
       await ready;
+      const myUid = currentUid();
+      if (!myUid) throw new Error('You must be signed in to join a club.');
       const clean = code.trim().toUpperCase();
       const invite = await getDoc(doc(db, 'invites', clean));
       if (!invite.exists()) throw new Error('No club has that invite code.');
       const { groupId } = invite.data();
       const group = await getDoc(groupRef(groupId));
-      const existing = await getDoc(memberRef(groupId)).catch(() => null);
-      if (existing?.exists()) return { groupId, name: group.data().name };
+      const existing = await getDoc(doc(db, 'groups', groupId, 'members', myUid)).catch(() => null);
+      if (existing?.exists()) {
+        setDoc(doc(db, 'users', myUid), { clubs: arrayUnion({ id: groupId, name: group.data().name }) }, { merge: true }).catch(() => {});
+        return { groupId, name: group.data().name, inviteCode: clean };
+      }
       const batch = writeBatch(db);
-      batch.set(memberRef(groupId), { displayName, joinedAt: Date.now(), inviteCode: clean });
+      batch.set(doc(db, 'groups', groupId, 'members', myUid), { displayName, joinedAt: Date.now(), inviteCode: clean });
       batch.update(groupRef(groupId), { memberCount: increment(1) });
       await batch.commit();
-      return { groupId, name: group.data().name };
+
+      setDoc(doc(db, 'users', myUid), { clubs: arrayUnion({ id: groupId, name: group.data().name }), name: displayName }, { merge: true }).catch(() => {});
+      return { groupId, name: group.data().name, inviteCode: clean };
     },
 
     watchGroup(gid, cb) {

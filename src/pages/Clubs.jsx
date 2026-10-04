@@ -2,7 +2,7 @@
 // The showcase has no rankings: newest activity first, that's all.
 import { Link } from 'react-router-dom';
 import { useClub } from '../components/ClubContext.jsx';
-import { useSession, setSession, useShowcase } from '../lib/db.js';
+import { useSession, setSession, useShowcase, useAuth } from '../lib/db.js';
 import { weeklyGoal, levelInfo } from '../lib/rules.js';
 import { ITEMS } from '../lib/items.js';
 
@@ -17,6 +17,7 @@ function lastSeen(ms) {
 export default function Clubs() {
   const { gid, group, members, inviteCode, toast } = useClub();
   const session = useSession();
+  const { user, signOut } = useAuth();
   const showcase = useShowcase();
   if (!group) return null;
   const week = weeklyGoal(members);
@@ -48,6 +49,17 @@ export default function Clubs() {
           <button className="btn small primary" onClick={share}>Invite friends</button>
         </div>
         <Link to="/join" className="btn ghost block">Join or start another club</Link>
+      </div>
+
+      <div className="card stack" style={{ gap: 8 }}>
+        <p className="label">My account</p>
+        <div className="between">
+          <div>
+            <strong>{user?.displayName || 'Signed in'}</strong>
+            {user?.email && <p className="muted small" style={{ margin: 0 }}>{user.email}</p>}
+          </div>
+          <button type="button" className="btn small ghost" onClick={() => signOut()}>Sign out</button>
+        </div>
       </div>
 
       <div className="card pink stack" style={{ gap: 8 }}>

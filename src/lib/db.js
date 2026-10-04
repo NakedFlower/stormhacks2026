@@ -48,10 +48,101 @@ export function useSession() {
   );
 }
 
+export function useAuth() {
+  const [user, setUser] = useState(api.currentUser?.() ?? null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const unsub = api.onAuthChange?.((currUser) => {
+      if (!mounted) return;
+      setUser(currUser);
+      setLoading(false);
+      session = readSession();
+      if (currUser && api.getUserClubs && session.clubs.length === 0) {
+        api.getUserClubs(currUser.uid).then((clubs) => {
+          if (clubs && clubs.length > 0) {
+            setSession({ clubs, current: clubs[0].id });
+          }
+        }).catch(() => {});
+      }
+      sessionListeners.forEach((l) => l());
+    });
+    return () => {
+      mounted = false;
+      if (unsub) unsub();
+    };
+  }, []);
+
+  const signInWithEmail = async (email, password) => {
+    setError(null);
+    try {
+      return await api.signInWithEmail(email, password);
+    } catch (err) {
+      setError(err);
+      throw err;
+    }
+  };
+
+  const signUpWithEmail = async (email, password, displayName) => {
+    setError(null);
+    try {
+      return await api.signUpWithEmail(email, password, displayName);
+    } catch (err) {
+      setError(err);
+      throw err;
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    setError(null);
+    try {
+      return await api.signInWithGoogle();
+    } catch (err) {
+      setError(err);
+      throw err;
+    }
+  };
+
+  const signOut = async () => {
+    setError(null);
+    try {
+      await api.signOut();
+      session = { current: null, clubs: [], name: '' };
+      sessionListeners.forEach((l) => l());
+    } catch (err) {
+      setError(err);
+      throw err;
+    }
+  };
+
+  return {
+    user,
+    loading,
+    error,
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+    signOut,
+  };
+}
+
+export async function logout() {
+  await api.signOut();
+  session = { current: null, clubs: [], name: '' };
+  sessionListeners.forEach((l) => l());
+}
+
 export function useReady() {
   const [uid, setUid] = useState(api.uid());
   const [error, setError] = useState(null);
-  useEffect(() => { api.ready().then(setUid, setError); }, []);
+  useEffect(() => {
+    api.ready().then(setUid, setError);
+    if (api.onAuthChange) {
+      return api.onAuthChange((u) => setUid(u ? u.uid : null));
+    }
+  }, []);
   return { uid, error };
 }
 

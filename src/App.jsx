@@ -2,10 +2,11 @@
 // Owner: Akam. Shared file: say so in the team chat before editing.
 import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { api, useReady, useSession } from './lib/db.js';
+import { api, useAuth, useSession } from './lib/db.js';
 import { ClubProvider } from './components/ClubContext.jsx';
 import NavBar from './components/NavBar.jsx';
 import LogSheet from './components/LogSheet.jsx';
+import Auth from './pages/Auth.jsx';
 import Join from './pages/Join.jsx';
 import Home from './pages/Home.jsx';
 import Grow from './pages/Grow.jsx';
@@ -26,12 +27,20 @@ function Phone({ children }) {
 }
 
 export default function App() {
-  const { uid, error } = useReady();
+  const { user, loading, error } = useAuth();
   const session = useSession();
   const [logOpen, setLogOpen] = useState(false);
 
   if (error) return <Phone><div className="screen center"><p className="error">Couldn't sign in: {error.message}</p></div></Phone>;
-  if (!uid) return <Phone><div className="screen center muted">Waking up…</div></Phone>;
+  if (loading) return <Phone><div className="screen center muted">Waking up…</div></Phone>;
+
+  if (!user) {
+    return (
+      <Phone>
+        <Routes><Route path="*" element={<Auth />} /></Routes>
+      </Phone>
+    );
+  }
 
   if (!session.current) {
     return (
