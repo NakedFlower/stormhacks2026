@@ -61,11 +61,19 @@ test('F5 The workout to-do stays ticked and points to the + button', async () =>
 });
 
 test('LV5 Daily cap holds and says so', async () => {
+  // To-do EXP sits outside the daily cap (#7), so the club total is not a fixed number.
+  // What matters: once the cap is hit, another workout adds no EXP and says so.
   const solo = pages.Solo;
+  const exp = async () => Number((await expChip(solo).textContent()).replace(/\D/g, ''));
+  const before = await exp();
   await logActivity(solo, 'Run', 60, 'Vigorous');
+  const first = toastText(solo).filter({ hasText: /\+\d+ EXP/ }).first();
+  const paid = Number((await first.textContent()).match(/\+(\d+) EXP/)[1]);
+  const atCap = before + paid;
+  await expect.poll(exp).toBe(atCap);
   await logActivity(solo, 'Run', 60, 'Vigorous');
-  await expect(toastText(solo)).toContainText('cap');
-  await expect(expChip(solo)).toContainText('60 EXP');
+  await expect(toastText(solo).filter({ hasText: '+0 EXP' })).toContainText('cap');
+  expect(await exp()).toBe(atCap);
 });
 
 test('R1 Opening the app does not announce the current level', async () => {
