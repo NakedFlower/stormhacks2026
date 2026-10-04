@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "test": "node --test src/lib/*.test.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seed:demo": "playwright test -c scripts/seed-demo/playwright.config.js"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

@@ -24,6 +24,7 @@ To use real shared data, copy `.env.example` to `.env.local` and fill in the fou
 | `npm test` | Unit tests for the game rules (EXP, cap, levels, goals, shop) |
 | `npm run build` | Production build into `dist/` (what Vercel runs) |
 | `npm run test:e2e` | Sign-up and invite browser tests (`e2e/`). Writes "E2E …" clubs to the real database, so run by hand only, never in CI. `BASE_URL` picks the site (default: production) |
+| `npm run seed:demo` | Creates the three demo clubs (`scripts/seed-demo/`) on `BASE_URL` and saves their invite codes to `seed-demo-codes.txt`. Every run makes new clubs, so run it once |
 | `npm run preview` | Serve the production build locally |
 
 ## Where things live
