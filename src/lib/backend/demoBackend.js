@@ -1,7 +1,7 @@
 // Demo backend: same interface as the Firebase one, but all data lives in this
 // browser's localStorage. Each browser TAB is a different person, so you can
 // test live sync with two tabs side by side and no Firebase project.
-import { applyWorkout, applyWellness, dailyGoal, levelInfo, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
+import { applyWorkout, applyWellness, hasBuddy, dailyGoal, levelInfo, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
 import { itemById, cannotBuy, priceFor, equipList, challengeProgress } from '../items.js';
 
 const KEY = 'fitkin-demo-db';
@@ -88,7 +88,8 @@ export function createDemoBackend() {
 
     async logWorkout(gid, input) {
       const m = me(gid);
-      const r = applyWorkout(m, input, new Date());
+      const now = new Date();
+      const r = applyWorkout(m, input, now, { buddy: hasBuddy(data.broadcasts[gid], uid, now) });
       data.members[gid][uid] = { ...r.member, id: uid };
       const g = group(gid);
       g.exp += r.exp;
@@ -96,7 +97,7 @@ export function createDemoBackend() {
       g.lastActiveAt = Date.now();
       (data.workouts[gid] ??= []).push({ ...r.workout, id: `w${Date.now()}`, uid, name: m.displayName });
       save();
-      return delay({ exp: r.exp, coins: r.coins, capped: r.capped });
+      return delay({ exp: r.exp, coins: r.coins, capped: r.capped, buddy: r.buddy, variety: r.variety });
     },
 
     async doWellness(gid, taskId) {
