@@ -11,6 +11,10 @@ export const GROUP_GOAL_MINUTES = 10; // "everyone moves 10 minutes today"
 export const GROUP_GOAL_SHARE = 0.75; // goal completes at 75% of members
 export const WEEKLY_MINUTES_PER_MEMBER = 150; // WHO guideline
 export const BROADCAST_HOURS = 3;
+export const BUDDY_MULTIPLIER = 1.25; // workout EXP when you're in a live "Heading out" with company
+export const BUDDY_MIN_GOING = 2;
+export const VARIETY_EXP = 10; // first log of an activity type this week
+export const VARIETY_MAX_PER_WEEK = 2;
 
 export const INTENSITY = { light: 1, moderate: 1.5, vigorous: 2 };
 
@@ -100,11 +104,13 @@ export function freshMember(member, now = new Date()) {
   if (m.weekStart !== week) {
     m.weekStart = week;
     m.weekMinutes = 0;
+    m.weekTypes = [];
   }
   m.todayExp ??= 0;
   m.todayMinutes ??= 0;
   m.wellnessDone ??= [];
   m.weekMinutes ??= 0;
+  m.weekTypes ??= [];
   return m;
 }
 
@@ -119,12 +125,23 @@ export function validateWorkout(input) {
   return null;
 }
 
+// True when this member is in a live "Heading out" broadcast with enough people going.
+export function hasBuddy(broadcasts, uid, now = new Date()) {
+  const t = now.getTime();
+  return (broadcasts ?? []).some((b) => (b.expiresAt ?? 0) > t
+    && (b.going ?? []).includes(uid) && b.going.length >= BUDDY_MIN_GOING);
+}
+
 // Returns what a logged workout changes. The caller writes it.
-export function applyWorkout(member, input, now = new Date()) {
+// Order: base EXP, x buddy multiplier, + variety bonus, then the daily cap last.
+export function applyWorkout(member, input, now = new Date(), { buddy = false } = {}) {
   const error = validateWorkout(input);
   if (error) throw new Error(error);
   const m = freshMember(member, now);
-  const raw = activityExp(input);
+  const base = activityExp(input);
+  const newType = !m.weekTypes.includes(input.type);
+  const variety = newType && m.weekTypes.length < VARIETY_MAX_PER_WEEK; // types beyond the 2nd never earn it
+  const raw = (buddy ? Math.round(base * BUDDY_MULTIPLIER) : base) + (variety ? VARIETY_EXP : 0);
   const room = Math.max(0, DAILY_EXP_CAP - m.todayExp);
   const exp = Math.min(raw, room);
   const minutes = Math.round(Number(input.minutes));
@@ -132,8 +149,11 @@ export function applyWorkout(member, input, now = new Date()) {
     exp,
     coins: WORKOUT_COINS,
     capped: exp < raw,
+    buddy,
+    variety,
     member: {
       ...m,
+      weekTypes: newType ? [...m.weekTypes, input.type] : m.weekTypes,
       todayExp: m.todayExp + exp,
       todayMinutes: m.todayMinutes + minutes,
       weekMinutes: m.weekMinutes + minutes,

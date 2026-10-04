@@ -4,10 +4,10 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import {
-  getFirestore, doc, collection, getDoc, onSnapshot, query, orderBy, limit,
+  getFirestore, doc, collection, getDoc, getDocs, where, onSnapshot, query, orderBy, limit,
   runTransaction, writeBatch, increment, arrayUnion, addDoc, updateDoc,
 } from 'firebase/firestore';
-import { applyWorkout, applyWellness, dailyGoal, levelInfo, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
+import { applyWorkout, applyWellness, hasBuddy, dailyGoal, levelInfo, makeInviteCode, dayKey, BROADCAST_HOURS, GROUP_GOAL_COINS } from '../rules.js';
 import { itemById, cannotBuy, priceFor, equipList, challengeProgress } from '../items.js';
 
 export function createFirebaseBackend(config) {
@@ -88,15 +88,19 @@ export function createFirebaseBackend(config) {
     },
 
     async logWorkout(gid, input) {
+      // Live broadcasts are read before the transaction: queries can't run inside one.
+      const now = new Date();
+      const live = await getDocs(query(collection(db, 'groups', gid, 'broadcasts'), where('expiresAt', '>', now.getTime())));
+      const buddy = hasBuddy(live.docs.map((d) => d.data()), uid, now);
       return runTransaction(db, async (tx) => {
         const mSnap = await tx.get(memberRef(gid));
         if (!mSnap.exists()) throw new Error('You are not in this club.');
         const me = mSnap.data();
-        const r = applyWorkout(me, input, new Date());
+        const r = applyWorkout(me, input, now, { buddy });
         tx.set(memberRef(gid), r.member, { merge: true });
         tx.update(groupRef(gid), { exp: increment(r.exp), coins: increment(r.coins), lastActiveAt: Date.now() });
         tx.set(doc(collection(db, 'groups', gid, 'workouts')), { ...r.workout, uid, name: me.displayName });
-        return { exp: r.exp, coins: r.coins, capped: r.capped };
+        return { exp: r.exp, coins: r.coins, capped: r.capped, buddy: r.buddy, variety: r.variety };
       });
     },
 

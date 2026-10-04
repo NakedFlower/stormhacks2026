@@ -61,7 +61,7 @@ groups/{gid}                           { name, exp, coins, owned[], equipped[], 
                                          goalsCompleted, goalPaidDate, achievements[], lastActiveAt, createdAt }
 groups/{gid}/meta/invite               { code }                      members only
 groups/{gid}/members/{uid}             { displayName, joinedAt, inviteCode, todayDate, todayExp,
-                                         todayMinutes, wellnessDone[], weekStart, weekMinutes, lastActiveDate }
+                                         todayMinutes, wellnessDone[], weekStart, weekMinutes, weekTypes[], lastActiveDate }
 groups/{gid}/workouts/{id}             { uid, name, type, minutes, intensity, sets, mood, exp, createdAt }
 groups/{gid}/broadcasts/{id}           { uid, name, activity, time, going[], createdAt, expiresAt }
 ```
@@ -76,5 +76,5 @@ groups/{gid}/broadcasts/{id}           { uid, name, activity, time, going[], cre
 ## Known gaps (on purpose, for the hackathon)
 
 - Any club member can write the club's EXP/coins from the client. Fixing it properly needs Cloud Functions (paid Blaze plan).
-- Spending allowance and purchase votes, custom tasks with a friend's OK, and the buddy and variety bonuses are specced but not built.
+- Spending allowance and purchase votes, and custom tasks with a friend's OK are specced but not built.
 - The showcase lists any club's mascot (name, level, outfit) to signed-in users. Members and workouts stay private.
