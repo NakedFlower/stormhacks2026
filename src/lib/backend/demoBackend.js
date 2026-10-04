@@ -15,12 +15,14 @@ export function createDemoBackend() {
   let data = load();
   const listeners = new Set();
 
-  let uid = null;
-  try { uid = sessionStorage.getItem('fitkin-demo-uid'); } catch { /* private mode */ }
-  if (!uid) {
-    uid = `demo-${Math.random().toString(36).slice(2, 10)}`;
-    try { sessionStorage.setItem('fitkin-demo-uid', uid); } catch { /* ignore */ }
-  }
+  let currentUser = null;
+  try {
+    const raw = sessionStorage.getItem('fitkin-demo-user');
+    if (raw) currentUser = JSON.parse(raw);
+  } catch { /* ignore */ }
+  let uid = currentUser ? currentUser.uid : null;
+  const authListeners = new Set();
+  const notifyAuth = () => authListeners.forEach((l) => l(currentUser));
 
   const emit = () => listeners.forEach((l) => l());
   const save = () => {
@@ -53,6 +55,45 @@ export function createDemoBackend() {
     mode: 'demo',
     ready: () => Promise.resolve(uid),
     uid: () => uid,
+    currentUser: () => currentUser,
+
+    onAuthChange(cb) {
+      authListeners.add(cb);
+      cb(currentUser);
+      return () => authListeners.delete(cb);
+    },
+
+    async signUpWithEmail(email, password, displayName) {
+      uid = `demo-${Math.random().toString(36).slice(2, 10)}`;
+      currentUser = { uid, email, displayName: displayName || email.split('@')[0] };
+      try { sessionStorage.setItem('fitkin-demo-user', JSON.stringify(currentUser)); } catch {}
+      notifyAuth();
+      return delay(currentUser);
+    },
+
+    async signInWithEmail(email, password) {
+      uid = `demo-${Math.random().toString(36).slice(2, 10)}`;
+      currentUser = { uid, email, displayName: email.split('@')[0] };
+      try { sessionStorage.setItem('fitkin-demo-user', JSON.stringify(currentUser)); } catch {}
+      notifyAuth();
+      return delay(currentUser);
+    },
+
+    async signInWithGoogle() {
+      uid = `demo-google-${Math.random().toString(36).slice(2, 10)}`;
+      currentUser = { uid, email: 'google.demo@fitkin.app', displayName: 'Fitkin Demo User' };
+      try { sessionStorage.setItem('fitkin-demo-user', JSON.stringify(currentUser)); } catch {}
+      notifyAuth();
+      return delay(currentUser);
+    },
+
+    async signOut() {
+      currentUser = null;
+      uid = null;
+      try { sessionStorage.removeItem('fitkin-demo-user'); } catch {}
+      notifyAuth();
+      return delay();
+    },
 
     async createClub(name, displayName) {
       const gid = `g${Date.now().toString(36)}`;
@@ -65,18 +106,19 @@ export function createDemoBackend() {
       data.members[gid] = { [uid]: { id: uid, displayName, joinedAt: now } };
       data.invites[code] = gid;
       save();
-      return delay({ groupId: gid, name });
+      return delay({ groupId: gid, name, inviteCode: code });
     },
 
     async joinClub(code, displayName) {
-      const gid = data.invites[code.trim().toUpperCase()];
+      const clean = code.trim().toUpperCase();
+      const gid = data.invites[clean];
       if (!gid) throw new Error('No club has that invite code.');
       if (!data.members[gid][uid]) {
         data.members[gid][uid] = { id: uid, displayName, joinedAt: Date.now() };
         data.groups[gid].memberCount += 1;
         save();
       }
-      return delay({ groupId: gid, name: data.groups[gid].name });
+      return delay({ groupId: gid, name: data.groups[gid].name, inviteCode: clean });
     },
 
     watchGroup: (gid, cb) => watch(() => data.groups[gid] ?? null, cb),
