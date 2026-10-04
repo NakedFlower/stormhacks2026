@@ -1,6 +1,6 @@
 // Authentication screen: Email/Password (Sign in / Sign up) and Google sign-in.
 import { useState } from 'react';
-import { useAuth } from '../lib/db.js';
+import { useAuth, setSession } from '../lib/db.js';
 
 function friendlyAuthError(err) {
   if (!err) return null;
@@ -44,6 +44,8 @@ export default function Auth() {
     try {
       if (mode === 'signup') {
         await signUpWithEmail(email.trim(), password, displayName.trim());
+        // Firebase sets the profile name a moment after sign-up, so hand it to the join screen directly.
+        setSession({ name: displayName.trim() });
       } else {
         await signInWithEmail(email.trim(), password);
       }
