@@ -135,7 +135,8 @@ export function createDemoBackend() {
     async equip(gid, itemId) {
       const g = group(gid);
       const item = itemById(itemId);
-      if (!g.owned.includes(itemId)) g.owned.push(itemId);
+      const unlocked = item.tier === 'legendary' ? challengeProgress(g, item.challenge).done : g.owned.includes(itemId);
+      if (!unlocked) throw new Error('Not unlocked yet.');
       g.equipped = equipList(g.equipped, item);
       save();
       return delay();

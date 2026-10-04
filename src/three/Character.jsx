@@ -8,12 +8,8 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { useRef, useMemo, useEffect } from 'react';
-import * as THREE from 'three';
+import { ITEM_MODELS } from './itemModels.js';
 
-const HAT_MAP = { cap: 'PropellerBeanie', crown: 'Crown', bow: 'Bow' };
-const HAT_OFFSET = { cap: [0.8, -0.5, 0], crown: [0, 0, 0], bow: [0.6, 0, 0] };
-const HAT_ROTATION = { cap: [0.4, 0, 0.3], crown: [0, 0, 0], bow: [0, 0, 0] };
-const HAT_CAM_Z = { cap: 10, crown: 8.3, bow: 6.9 };
 const BODY_SCALE = { baby: 0.72, kid: 0.86, teen: 0.98, adult: 1.08 };
 
 function Creature({ stage, equipped, awake, popKey }) {
@@ -28,9 +24,9 @@ function Creature({ stage, equipped, awake, popKey }) {
     const anchor = model.getObjectByName('HatAnchor');
     if (!anchor) return;
     anchor.clear();
-    const hatId = equipped.find((id) => HAT_MAP[id]);
+    const hatId = equipped.find((id) => ITEM_MODELS[id]);
     if (hatId) {
-      const node = hatNodes[HAT_MAP[hatId]];
+      const node = hatNodes[ITEM_MODELS[hatId].node];
       if (node) {
         const clone = node.clone(true);
         clone.position.set(0, 0, 0);
@@ -78,11 +74,9 @@ function HatMesh({ hatName }) {
 }
 
 export function HatPreview({ itemId, size = 100 }) {
-  const hatName = HAT_MAP[itemId];
-  const offset = HAT_OFFSET[itemId] ?? [0, 0, 0];
-  const rotation = HAT_ROTATION[itemId] ?? [0, 0, 0];
-  const camZ = HAT_CAM_Z[itemId] ?? 10;
-  if (!hatName) return null;
+  const model = ITEM_MODELS[itemId];
+  if (!model) return null;
+  const { node: hatName, offset, rotation, camZ } = model;
   return (
     <div style={{ width: size, height: size }}>
       <Canvas camera={{ position: [0, 0, camZ], fov: 40 }} dpr={[1, 2]}>

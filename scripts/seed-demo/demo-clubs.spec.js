@@ -59,7 +59,7 @@ test('Mia starts Sunrise Swim Club and swims 30 min', async ({ browser }) => {
   await logActivity(mia, 'Swim', 30);
 });
 
-test('Leo starts Badminton Bunch, plays 30 min, ticks 3 to-dos, buys Sunglasses', async ({ browser }) => {
+test('Leo starts Badminton Bunch, plays 30 min, ticks 3 to-dos, buys the Club cap', async ({ browser }) => {
   const leo = await startClub(browser, 'Leo', 'Badminton Bunch');
   await logActivity(leo, 'Sport', 30);
   for (const task of ['Drink 2L water', 'Stretch 5 minutes', '10 minutes outside']) {
@@ -69,10 +69,10 @@ test('Leo starts Badminton Bunch, plays 30 min, ticks 3 to-dos, buys Sunglasses'
     await expect(box).toBeChecked();
   }
   await nav(leo).getByRole('link', { name: 'Shop' }).click();
-  const card = leo.locator('.card', { has: leo.locator('strong', { hasText: /^Sunglasses$/ }) });
+  const card = leo.locator('.card', { has: leo.locator('strong', { hasText: /^Club cap$/ }) });
   await card.getByRole('button', { name: 'Buy' }).click();
   await expect(card.getByText('Owned')).toBeVisible();
-  await expect(leo.getByText('Wearing', { exact: true }).locator('..')).toContainText('Sunglasses');
+  await expect(leo.getByText('Wearing', { exact: true }).locator('..')).toContainText('Club cap');
 });
 
 test('Sam starts Res Hall Hikers, walks 20 min, and sees all three in the showcase', async ({ browser }) => {
@@ -83,5 +83,5 @@ test('Sam starts Res Hall Hikers, walks 20 min, and sees all three in the showca
   for (const club of CLUBS) {
     await expect(showcase.getByText(new RegExp(`^${club}( \\(us\\))?$`)).first()).toBeVisible();
   }
-  await expect(showcase.locator('.card', { hasText: 'Badminton Bunch' }).first()).toContainText('sunglasses');
+  await expect(showcase.locator('.card', { hasText: 'Badminton Bunch' }).first()).toContainText('club cap');
 });
